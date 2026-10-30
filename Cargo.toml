@@ -1,0 +1,39 @@
+[package]
+name = "meshcore-m5"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Olivier Booklage <olivier.booklage@ac-bordeaux.fr>"]
+description = "Terminal client for a MeshCore companion radio over Bluetooth"
+
+[dependencies]
+anyhow = "1"
+# Local time of messages.
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+clap = { version = "4", features = ["derive"] }
+futures = "0.3"
+# Map tiles: PNG decoding and composing.
+image = { version = "0.25", default-features = false, features = ["png"] }
+meshcore-rs = { version = "0.2.0", default-features = false, features = ["ble"] }
+# line_count: keep the conversation anchored at its last wrapped row.
+ratatui = { version = "0.30", features = ["unstable-rendered-line-info"] }
+# The map as an image in the terminal (Kitty, Sixel, or half blocks).
+ratatui-image = { version = "11.1", default-features = false, features = ["crossterm"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tracing = "0.1"
+# Already pulled by ratatui: names with emoji take two cells.
+unicode-width = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# OpenStreetMap tile downloads.
+ureq = "3"
+
+[dev-dependencies]
+tempfile = "3"
+
+# meshcore-rs 0.2.0 patched in src/meshcore/ble.rs: one BLE manager per process and an
+# unsubscribe before subscribe (every reconnect duplicated all notifications), a leftover
+# scan stopped before a new one, and ble_disconnect() (disconnect() leaves the link up).
+[patch.crates-io]
+meshcore-rs = { path = "vendor/meshcore-rs" }
