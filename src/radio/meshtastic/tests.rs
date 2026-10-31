@@ -73,7 +73,12 @@ fn node_keys_round_trip() {
 #[test]
 #[allow(deprecated)]
 fn roles_map_to_node_kinds() {
-    for r in [Role::Router, Role::RouterLate, Role::RouterClient, Role::Repeater] {
+    for r in [
+        Role::Router,
+        Role::RouterLate,
+        Role::RouterClient,
+        Role::Repeater,
+    ] {
         assert_eq!(kind(r), NodeKind::Repeater, "{r:?}");
     }
     assert_eq!(kind(Role::Sensor), NodeKind::Sensor);
@@ -107,7 +112,10 @@ fn node_from_node_info() {
     assert_eq!(n.prefix, "mt:!0badcafe");
     assert_eq!(n.name, "Bob");
     let pos = n.pos.unwrap();
-    assert!((pos.lat - 44.826663).abs() < 1e-7 && (pos.lon + 0.557138).abs() < 1e-7, "{pos:?}");
+    assert!(
+        (pos.lat - 44.826663).abs() < 1e-7 && (pos.lon + 0.557138).abs() < 1e-7,
+        "{pos:?}"
+    );
     assert_eq!(n.heard, 1_793_451_000);
     assert_eq!(n.path_len, 2);
     assert!(n.path.is_empty());
@@ -172,12 +180,19 @@ fn my_radio_shows_the_preset() {
     let r = my_radio(5, Some(&bob()), None, Some(&lora));
     assert_eq!(r.preset.as_deref(), Some("EU_868 LONG_FAST"));
     assert_eq!(r.freq_khz, 0);
-    assert_eq!((r.prefix.as_str(), r.name.as_str()), ("mt:!00000005", "Bob"));
+    assert_eq!(
+        (r.prefix.as_str(), r.name.as_str()),
+        ("mt:!00000005", "Bob")
+    );
     assert_eq!(r.tx_power, 27);
     assert!(r.shares_position);
 }
 
-fn routing_from(from: u32, request_id: u32, error: routing::Error) -> (pb::MeshPacket, pb::Routing) {
+fn routing_from(
+    from: u32,
+    request_id: u32,
+    error: routing::Error,
+) -> (pb::MeshPacket, pb::Routing) {
     let p = pb::MeshPacket {
         from,
         payload_variant: Some(PayloadVariant::Decoded(pb::Data {
@@ -254,8 +269,16 @@ fn packets_during_the_handshake_are_kept() {
     };
     assert!(!absorb(&mut snap, incoming(Incoming::MyInfo(my_info)), 42));
     assert!(!absorb(&mut snap, incoming(Incoming::NodeInfo(bob)), 42));
-    assert!(!absorb(&mut snap, incoming(Incoming::Packet(text.clone())), 42));
-    assert!(absorb(&mut snap, incoming(Incoming::ConfigCompleteId(42)), 42));
+    assert!(!absorb(
+        &mut snap,
+        incoming(Incoming::Packet(text.clone())),
+        42
+    ));
+    assert!(absorb(
+        &mut snap,
+        incoming(Incoming::ConfigCompleteId(42)),
+        42
+    ));
     assert_eq!(snap.my_num, 5);
     assert!(snap.nodes.contains_key(&9));
     assert_eq!(snap.pending, vec![text]);
@@ -264,7 +287,11 @@ fn packets_during_the_handshake_are_kept() {
 #[test]
 fn another_config_id_does_not_end_the_handshake() {
     let mut snap = Snapshot::default();
-    assert!(!absorb(&mut snap, incoming(Incoming::ConfigCompleteId(41)), 42));
+    assert!(!absorb(
+        &mut snap,
+        incoming(Incoming::ConfigCompleteId(41)),
+        42
+    ));
 }
 
 #[test]
@@ -314,7 +341,10 @@ fn pending_texts_become_messages() {
     });
     let msgs = pending_msgs(&snap);
     assert_eq!(msgs.len(), 1);
-    assert_eq!((msgs[0].conv.as_str(), msgs[0].text.as_str()), (MT_PUBLIC, "hi"));
+    assert_eq!(
+        (msgs[0].conv.as_str(), msgs[0].text.as_str()),
+        (MT_PUBLIC, "hi")
+    );
 }
 
 #[test]
@@ -344,4 +374,55 @@ fn packets_carry_the_hop_limit() {
         panic!("not a packet");
     };
     assert_eq!((p.to, p.hop_limit, p.want_ack), (9, 3, true));
+}
+
+fn position_packet(from: u32) -> pb::FromRadio {
+    use prost::Message;
+    let pos = pb::Position {
+        latitude_i: Some(448_266_630),
+        longitude_i: Some(-5_571_380),
+        ..Default::default()
+    };
+    incoming(Incoming::Packet(pb::MeshPacket {
+        from,
+        payload_variant: Some(PayloadVariant::Decoded(pb::Data {
+            portnum: pb::PortNum::PositionApp as i32,
+            payload: pos.encode_to_vec(),
+            ..Default::default()
+        })),
+        ..Default::default()
+    }))
+}
+
+#[test]
+fn my_gps_fix_moves_me_on_the_map() {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let mut live = Live::new(5, HashMap::new(), 3);
+    let history = std::path::Path::new("/nonexistent-dir/history.jsonl");
+    live.take_all(vec![position_packet(9)], history, &tx)
+        .unwrap();
+    assert!(
+        !rx.try_iter().any(|m| matches!(m, FromRadio::SelfPos(_))),
+        "another node"
+    );
+    live.take_all(vec![position_packet(5)], history, &tx)
+        .unwrap();
+    let me = rx.try_iter().find_map(|m| match m {
+        FromRadio::SelfPos(pos) => pos,
+        _ => None,
+    });
+    let me = me.expect("my position");
+    assert!((me.lat - 44.826663).abs() < 1e-7 && (me.lon + 0.557138).abs() < 1e-7);
+}
+
+#[test]
+fn my_node_info_with_a_position_moves_me_too() {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let mut live = Live::new(0x0badcafe, HashMap::new(), 3);
+    let history = std::path::Path::new("/nonexistent-dir/history.jsonl");
+    live.take_all(vec![incoming(Incoming::NodeInfo(bob()))], history, &tx)
+        .unwrap();
+    assert!(rx
+        .try_iter()
+        .any(|m| matches!(m, FromRadio::SelfPos(Some(_)))));
 }

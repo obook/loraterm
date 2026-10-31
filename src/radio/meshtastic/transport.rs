@@ -68,7 +68,11 @@ impl Transport {
 
     async fn open(radio: Peripheral, name: &str) -> anyhow::Result<Transport> {
         radio.discover_services().await?;
-        if !radio.services().iter().any(|s| s.uuid == MESHTASTIC_SERVICE) {
+        if !radio
+            .services()
+            .iter()
+            .any(|s| s.uuid == MESHTASTIC_SERVICE)
+        {
             return Err(RepairNeeded(name.to_string()).into());
         }
         let chars = radio.characteristics();
@@ -103,7 +107,11 @@ impl Transport {
     /// One ToRadio, as is: no 4-byte header over Bluetooth.
     pub async fn send(&self, msg: &protobufs::ToRadio) -> anyhow::Result<()> {
         self.radio
-            .write(&self.to_radio, &msg.encode_to_vec(), WriteType::WithResponse)
+            .write(
+                &self.to_radio,
+                &msg.encode_to_vec(),
+                WriteType::WithResponse,
+            )
             .await?;
         Ok(())
     }

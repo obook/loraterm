@@ -12,8 +12,8 @@ use meshtastic::protobufs::config::device_config::Role;
 use meshtastic::protobufs::config::lo_ra_config::{ModemPreset, RegionCode};
 use meshtastic::protobufs::config::LoRaConfig;
 use meshtastic::protobufs::{
-    mesh_packet::PayloadVariant, routing, DeviceMetadata, DeviceMetrics, HardwareModel,
-    MeshPacket, NodeInfo, RouteDiscovery, Routing,
+    mesh_packet::PayloadVariant, routing, DeviceMetadata, DeviceMetrics, HardwareModel, MeshPacket,
+    NodeInfo, RouteDiscovery, Routing,
 };
 
 use crate::geo::pos_from_e7;
@@ -45,9 +45,7 @@ fn node_id(num: u32) -> String {
 #[allow(deprecated)]
 pub fn kind(role: Role) -> NodeKind {
     match role {
-        Role::Router | Role::RouterLate | Role::RouterClient | Role::Repeater => {
-            NodeKind::Repeater
-        }
+        Role::Router | Role::RouterLate | Role::RouterClient | Role::Repeater => NodeKind::Repeater,
         Role::Sensor => NodeKind::Sensor,
         _ => NodeKind::Chat,
     }
@@ -123,7 +121,9 @@ pub fn my_radio(
         name: me
             .and_then(|m| m.user.as_ref())
             .map_or_else(|| node_id(my_num), |u| u.long_name.clone()),
-        model: meta.and_then(|m| HardwareModel::try_from(m.hw_model).ok()).map(|h| h.as_str_name().into()),
+        model: meta
+            .and_then(|m| HardwareModel::try_from(m.hw_model).ok())
+            .map(|h| h.as_str_name().into()),
         version: meta.map(|m| m.firmware_version.clone()),
         build: None,
         freq_khz: lora.map_or(0, |l| (l.override_frequency * 1000.0).round() as u32),

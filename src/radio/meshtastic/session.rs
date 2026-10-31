@@ -102,7 +102,12 @@ pub(in crate::radio) fn pending_msgs(snap: &Snapshot) -> Vec<Msg> {
         .filter(|p| p.from != snap.my_num)
         .filter_map(|p| match &p.payload_variant {
             Some(PayloadVariant::Decoded(d)) if d.portnum == PortNum::TextMessageApp as i32 => {
-                Some(text_msg(p, &String::from_utf8_lossy(&d.payload), snap.my_num, &names))
+                Some(text_msg(
+                    p,
+                    &String::from_utf8_lossy(&d.payload),
+                    snap.my_num,
+                    &names,
+                ))
             }
             _ => None,
         })
@@ -190,7 +195,11 @@ pub(in crate::radio) struct Live {
 }
 
 impl Live {
-    pub(in crate::radio) fn new(my_num: u32, nodes: HashMap<u32, pb::NodeInfo>, hop_limit: u32) -> Live {
+    pub(in crate::radio) fn new(
+        my_num: u32,
+        nodes: HashMap<u32, pb::NodeInfo>,
+        hop_limit: u32,
+    ) -> Live {
         Live {
             my_num,
             hop_limit,
@@ -247,6 +256,15 @@ impl Live {
         match msg.payload_variant {
             Some(from_radio::PayloadVariant::Packet(p)) => self.packet(p, history, tx)?,
             Some(from_radio::PayloadVariant::NodeInfo(n)) => {
+                if n.num == self.my_num {
+                    let me = n
+                        .position
+                        .as_ref()
+                        .and_then(|p| pos_from_e7(p.latitude_i?, p.longitude_i?));
+                    if me.is_some() {
+                        let _ = tx.send(FromRadio::SelfPos(me));
+                    }
+                }
                 self.nodes.insert(n.num, n);
                 self.nodes_stale = true;
             }
@@ -281,6 +299,14 @@ impl Live {
             }
             Ok(PortNum::PositionApp) => {
                 if let Ok(pos) = pb::Position::decode(data.payload.as_slice()) {
+                    // The firmware copies our own broadcasts to us: a GPS fix shows at once.
+                    if p.from == self.my_num {
+                        let me =
+                            pos_from_e7(pos.latitude_i.unwrap_or(0), pos.longitude_i.unwrap_or(0));
+                        if me.is_some() {
+                            let _ = tx.send(FromRadio::SelfPos(me));
+                        }
+                    }
                     self.entry(p.from).position = Some(pos);
                 }
             }
@@ -341,27 +367,50 @@ impl Live {
         };
         match cmd {
             ToRadio::SendDirect { prefix, text } => {
-                let to = node_num(prefix).ok_or_else(|| anyhow::anyhow!("not a Meshtastic node"))?;
+                let to =
+                    node_num(prefix).ok_or_else(|| anyhow::anyhow!("not a Meshtastic node"))?;
                 let id = ids.next();
                 let bytes = text.as_bytes().to_vec();
-                t.send(&packet(to, id, PortNum::TextMessageApp, bytes, true, self.hop_limit))
-                    .await?;
+                t.send(&packet(
+                    to,
+                    id,
+                    PortNum::TextMessageApp,
+                    bytes,
+                    true,
+                    self.hop_limit,
+                ))
+                .await?;
                 self.sent.insert(id, to);
                 save(history, tx, outgoing(prefix, text, Some(ack_tag(id))))
             }
             ToRadio::SendPublic { text } => {
                 let bytes = text.as_bytes().to_vec();
                 let id = ids.next();
-                t.send(&packet(BROADCAST, id, PortNum::TextMessageApp, bytes, false, self.hop_limit))
-                    .await?;
+                t.send(&packet(
+                    BROADCAST,
+                    id,
+                    PortNum::TextMessageApp,
+                    bytes,
+                    false,
+                    self.hop_limit,
+                ))
+                .await?;
                 save(history, tx, outgoing(MT_PUBLIC, text, None))
             }
             ToRadio::Ping { prefix, .. } => {
-                let to = node_num(prefix).ok_or_else(|| anyhow::anyhow!("not a Meshtastic node"))?;
+                let to =
+                    node_num(prefix).ok_or_else(|| anyhow::anyhow!("not a Meshtastic node"))?;
                 let id = ids.next();
                 let route = pb::RouteDiscovery::default().encode_to_vec();
-                t.send(&packet(to, id, PortNum::TracerouteApp, route, false, self.hop_limit))
-                    .await?;
+                t.send(&packet(
+                    to,
+                    id,
+                    PortNum::TracerouteApp,
+                    route,
+                    false,
+                    self.hop_limit,
+                ))
+                .await?;
                 self.traces.insert(id, (prefix.clone(), Instant::now()));
                 Ok(())
             }
@@ -423,7 +472,14 @@ pub(in crate::radio) async fn session(
     let hop_limit = snap.lora.as_ref().map_or(0, |l| l.hop_limit);
     let hop_limit = if hop_limit == 0 { 3 } else { hop_limit };
     let admin = admin.encode_to_vec();
-    let set_time = packet(snap.my_num, ids.next(), PortNum::AdminApp, admin, false, hop_limit);
+    let set_time = packet(
+        snap.my_num,
+        ids.next(),
+        PortNum::AdminApp,
+        admin,
+        false,
+        hop_limit,
+    );
     if let Err(e) = t.send(&set_time).await {
         tracing::info!("radio clock not set: {e:#}");
     }
