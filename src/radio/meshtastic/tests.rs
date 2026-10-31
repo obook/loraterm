@@ -205,3 +205,53 @@ fn trace_counts_hops() {
         }
     );
 }
+
+use super::session::{absorb, failed, Snapshot};
+use crate::radio::{FromRadio, ToRadio};
+use meshtastic::protobufs::from_radio::PayloadVariant as Incoming;
+
+fn incoming(v: Incoming) -> pb::FromRadio {
+    pb::FromRadio {
+        payload_variant: Some(v),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn packets_during_the_handshake_are_kept() {
+    let mut snap = Snapshot::default();
+    let text = pb::MeshPacket {
+        from: 9,
+        ..Default::default()
+    };
+    let my_info = pb::MyNodeInfo {
+        my_node_num: 5,
+        ..Default::default()
+    };
+    let bob = pb::NodeInfo {
+        num: 9,
+        ..Default::default()
+    };
+    assert!(!absorb(&mut snap, incoming(Incoming::MyInfo(my_info)), 42));
+    assert!(!absorb(&mut snap, incoming(Incoming::NodeInfo(bob)), 42));
+    assert!(!absorb(&mut snap, incoming(Incoming::Packet(text.clone())), 42));
+    assert!(absorb(&mut snap, incoming(Incoming::ConfigCompleteId(42)), 42));
+    assert_eq!(snap.my_num, 5);
+    assert!(snap.nodes.contains_key(&9));
+    assert_eq!(snap.pending, vec![text]);
+}
+
+#[test]
+fn another_config_id_does_not_end_the_handshake() {
+    let mut snap = Snapshot::default();
+    assert!(!absorb(&mut snap, incoming(Incoming::ConfigCompleteId(41)), 42));
+}
+
+#[test]
+fn a_failed_public_send_goes_back_to_the_meshtastic_channel() {
+    let cmd = ToRadio::SendPublic { text: "hi".into() };
+    let FromRadio::SendFailed { conv, text, .. } = failed(&cmd, "busy".into()) else {
+        panic!("not a send failure");
+    };
+    assert_eq!((conv.as_str(), text.as_str()), (MT_PUBLIC, "hi"));
+}

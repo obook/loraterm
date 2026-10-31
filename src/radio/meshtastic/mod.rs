@@ -6,10 +6,12 @@
 //! Date: October 2026
 //! Licence: GPL-3.0
 
-// shortcut: the session (plan task 5) uses this module; until then nothing calls it.
-#![allow(dead_code)]
-
 mod convert;
+mod session;
 mod transport;
+
+pub(crate) use session::probe;
+pub(super) use session::session;
+pub(super) use transport::{RepairNeeded, Transport};
 #[cfg(test)]
 mod tests;

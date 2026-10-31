@@ -11,7 +11,10 @@ use std::sync::mpsc::Sender;
 
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
+use meshcore_rs::MeshCore;
+
 use super::link::{ble_disconnect, candidates, connect_to, Candidate};
+use super::meshtastic::{self, RepairNeeded, Transport};
 use super::session::session;
 use super::{FromRadio, Firmware, HistoryWriteFailed, Link, ToRadio, ANY_RADIO};
 use crate::config::RETRY;
@@ -27,6 +30,12 @@ pub fn spawn(
     let (cmd_tx, cmd_rx) = tokio::sync::mpsc::unbounded_channel();
     let task = rt.spawn(run(device, history, tx, cmd_rx));
     (cmd_tx, task)
+}
+
+/// A connected radio, of either firmware.
+enum Radio {
+    MeshCore(MeshCore),
+    Meshtastic(Transport),
 }
 
 pub(super) async fn run(
@@ -51,25 +60,44 @@ pub(super) async fn run(
             vec![]
         });
         for Candidate { name, firmware } in list {
-            if firmware != Firmware::MeshCore {
-                tracing::info!("{} radio {name}: not supported yet", firmware.name());
-                continue;
-            }
             if tx
                 .send(FromRadio::Link(Link::Searching(name.clone())))
                 .is_err()
             {
                 return;
             }
-            found = connect_to(&name).await.map(|radio| (radio, name));
-            if found.is_ok() {
-                break;
+            found = match firmware {
+                Firmware::MeshCore => connect_to(&name).await.map(Radio::MeshCore),
+                Firmware::Meshtastic => Transport::connect(&name).await.map(Radio::Meshtastic),
+            }
+            .map(|radio| (radio, name));
+            match &found {
+                Ok(_) => break,
+                // A stale Bluetooth cache does not heal by retrying: say what to do and stop.
+                Err(e) if e.is::<RepairNeeded>() => {
+                    tracing::error!("radio: {e:#}");
+                    let _ = tx.send(FromRadio::Link(Link::Lost(format!(
+                        "{e:#} - fix it, then restart"
+                    ))));
+                    return;
+                }
+                Err(_) => {}
             }
         }
         let reason = match found {
-            Ok((radio, name)) => {
-                let end = session(&radio, &name, &history, &tx, &mut cmds).await;
-                let _ = radio.disconnect().await;
+            Ok((mut radio, name)) => {
+                let end = match &mut radio {
+                    Radio::MeshCore(r) => session(r, &name, &history, &tx, &mut cmds).await,
+                    Radio::Meshtastic(t) => {
+                        meshtastic::session(t, &name, &history, &tx, &mut cmds).await
+                    }
+                };
+                match radio {
+                    Radio::MeshCore(r) => {
+                        let _ = r.disconnect().await;
+                    }
+                    Radio::Meshtastic(t) => t.disconnect().await,
+                }
                 if let Err(e) = ble_disconnect(&name).await {
                     tracing::warn!("BLE disconnect failed: {e:#}");
                 }

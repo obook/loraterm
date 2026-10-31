@@ -20,7 +20,8 @@ mod tests;
 use crate::geo::Pos;
 use crate::history::{Record, PUBLIC};
 pub use convert::lipo_percent;
-pub use link::{ble_disconnect, connect};
+pub use link::{ble_disconnect, candidates, connect_to, Candidate};
+pub(crate) use meshtastic::probe as probe_meshtastic;
 pub use task::spawn;
 
 #[derive(Clone, Debug, PartialEq)]

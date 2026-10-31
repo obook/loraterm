@@ -110,22 +110,6 @@ pub async fn connect_to(name: &str) -> anyhow::Result<MeshCore> {
     }
 }
 
-/// The first MeshCore radio of `candidates` that connects, with its BLE name.
-pub async fn connect(device: Option<&str>) -> anyhow::Result<(MeshCore, String)> {
-    let mut last = anyhow::anyhow!("no radio found");
-    for c in candidates(device).await? {
-        if c.firmware != Firmware::MeshCore {
-            tracing::info!("{} radio {}: not supported yet", c.firmware.name(), c.name);
-            continue;
-        }
-        match connect_to(&c.name).await {
-            Ok(radio) => return Ok((radio, c.name)),
-            Err(e) => last = e,
-        }
-    }
-    Err(last)
-}
-
 /// meshcore-rs 0.2.0 `disconnect()` only stops its own tasks: the BLE link stays up and a
 /// phone cannot connect to the radio. Drop the link of the radio named `name` (or address).
 pub async fn ble_disconnect(name: &str) -> anyhow::Result<()> {

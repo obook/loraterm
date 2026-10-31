@@ -46,14 +46,17 @@ pub struct Transport {
     radio: Peripheral,
     to_radio: Characteristic,
     from_radio: Characteristic,
-    notes: Pin<Box<dyn Stream<Item = ValueNotification> + Send>>,
+    /// In a mutex only to make the transport Sync; `notified` takes it by &mut, no locking.
+    notes: std::sync::Mutex<Pin<Box<dyn Stream<Item = ValueNotification> + Send>>>,
 }
 
 impl Transport {
     /// Connect to the radio named `name` (or its address); a half-open link is dropped.
     pub async fn connect(name: &str) -> anyhow::Result<Transport> {
         let radio = find(name).await?;
+        tracing::debug!("{name}: connecting");
         radio.connect().await?;
+        tracing::debug!("{name}: connected, discovering services");
         match Transport::open(radio.clone(), name).await {
             Ok(transport) => Ok(transport),
             Err(e) => {
@@ -80,6 +83,7 @@ impl Transport {
         // A subscription left by an earlier session would deliver every notification twice.
         let _ = radio.unsubscribe(&from_num).await;
         radio.subscribe(&from_num).await?;
+        tracing::debug!("{name}: subscribed to FromNum");
         let notes = radio
             .notifications()
             .await?
@@ -89,7 +93,7 @@ impl Transport {
             radio,
             to_radio,
             from_radio,
-            notes,
+            notes: std::sync::Mutex::new(notes),
         })
     }
 
@@ -113,7 +117,10 @@ impl Transport {
 
     /// Wait for the radio to say it has something; false once the link is gone.
     pub async fn notified(&mut self) -> bool {
-        self.notes.next().await.is_some()
+        match self.notes.get_mut() {
+            Ok(notes) => notes.next().await.is_some(),
+            Err(_) => false,
+        }
     }
 
     pub async fn disconnect(&self) {

@@ -1,6 +1,6 @@
 //! probe.rs
-//! --probe: connect to the radio, print its name, battery, position and contact count,
-//! then drop the link. Checks the Bluetooth setup without the interface.
+//! --probe: connect to the radio, print its name, firmware, battery, position and contact
+//! (or node) count, then drop the link. Checks the Bluetooth setup without the interface.
 //!
 //! Author: O. Booklage
 //! Date: October 2026
@@ -8,12 +8,28 @@
 
 use std::time::Duration;
 
-use crate::radio;
+use crate::radio::{self, Candidate, Firmware};
 
-/// Connect to `device` (or the first MeshCore radio), print its state, then drop the link,
-/// even when a read failed.
+/// Probe the first radio that answers, of either firmware.
 pub async fn probe(device: Option<&str>) -> anyhow::Result<()> {
-    let (radio, name) = radio::connect(device).await?;
+    let mut last = anyhow::anyhow!("no radio found");
+    for Candidate { name, firmware } in radio::candidates(device).await? {
+        let result = match firmware {
+            Firmware::MeshCore => meshcore(&name).await,
+            Firmware::Meshtastic => radio::probe_meshtastic(&name).await,
+        };
+        match result {
+            Ok(()) => return Ok(()),
+            Err(e) => last = e,
+        }
+    }
+    Err(last)
+}
+
+/// Connect to the MeshCore radio `name`, print its state, then drop the link, even when a
+/// read failed.
+async fn meshcore(name: &str) -> anyhow::Result<()> {
+    let radio = radio::connect_to(name).await?;
     let read = async {
         let cmd = radio.commands().lock().await;
         let me = cmd.send_appstart().await?;
@@ -22,6 +38,7 @@ pub async fn probe(device: Option<&str>) -> anyhow::Result<()> {
             .get_contacts_with_timeout(0, Duration::from_secs(30))
             .await?;
         println!("device   {}", me.name);
+        println!("firmware MeshCore");
         println!(
             "battery  {} %  ({} mV)",
             radio::lipo_percent(battery.battery_mv),
@@ -42,6 +59,6 @@ pub async fn probe(device: Option<&str>) -> anyhow::Result<()> {
     .await;
     // Drop the link even when a read failed, or a phone cannot reach the radio.
     let _ = radio.disconnect().await;
-    radio::ble_disconnect(&name).await?;
+    radio::ble_disconnect(name).await?;
     read
 }
