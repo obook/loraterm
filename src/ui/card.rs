@@ -137,6 +137,19 @@ pub(super) fn node_lines<'a>(app: &App, node: &Node, theme: Theme) -> Vec<Line<'
             lines.push(field(theme, "NOISE", format!("{noise} dBm"), text(theme)));
             lines.push(Line::styled("[P] PING AGAIN", text(theme)));
         }
+        Some(Ping::Trace { rtt_ms, hops, snr }) => {
+            let rtt = *rtt_ms as f64 / 1000.0;
+            lines.push(field(
+                theme,
+                "TRACE",
+                format!("{rtt:.1} s  {hops} HOPS"),
+                strong(theme),
+            ));
+            if let Some(snr) = snr {
+                lines.push(field(theme, "SNR", format!("{snr:.1} dB"), text(theme)));
+            }
+            lines.push(Line::styled("[P] PING AGAIN", text(theme)));
+        }
     }
     lines
 }

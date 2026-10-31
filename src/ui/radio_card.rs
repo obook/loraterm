@@ -47,27 +47,34 @@ pub(super) fn radio_lines<'a>(app: &App, radio: &MyRadio, theme: Theme) -> Vec<L
             text(theme),
         ));
     }
-    lines.push(field(
-        theme,
-        "FREQ",
-        format!("{:.3} MHz", f64::from(radio.freq_khz) / 1000.0),
-        text(theme),
-    ));
-    lines.push(field(
-        theme,
-        "LORA",
-        format!(
+    // Meshtastic on a preset gives no frequency, only the region and preset names.
+    if radio.freq_khz != 0 {
+        lines.push(field(
+            theme,
+            "FREQ",
+            format!("{:.3} MHz", f64::from(radio.freq_khz) / 1000.0),
+            text(theme),
+        ));
+    }
+    let lora = match &radio.preset {
+        Some(preset) => preset.clone(),
+        None => format!(
             "BW {} kHz SF {} CR {}",
             khz(radio.bw_hz),
             radio.sf,
             radio.cr
         ),
-        text(theme),
-    ));
+    };
+    lines.push(field(theme, "LORA", lora, text(theme)));
+    let max = if radio.max_tx_power > 0 {
+        format!(" (max {})", radio.max_tx_power)
+    } else {
+        String::new()
+    };
     lines.push(field(
         theme,
         "TX",
-        format!("{} dBm (max {})", radio.tx_power, radio.max_tx_power),
+        format!("{} dBm{max}", radio.tx_power),
         text(theme),
     ));
     lines.push(match app.self_pos {

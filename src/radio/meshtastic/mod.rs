@@ -9,6 +9,7 @@
 // shortcut: the session (plan task 5) uses this module; until then nothing calls it.
 #![allow(dead_code)]
 
+mod convert;
 mod transport;
 #[cfg(test)]
 mod tests;

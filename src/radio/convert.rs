@@ -34,6 +34,7 @@ pub fn my_radio(
         max_tx_power: me.max_tx_power,
         // Firmware ADVERT_LOC_NONE (0): the advert carries no position.
         shares_position: me.adv_loc_policy != 0,
+        preset: None,
     }
 }
 

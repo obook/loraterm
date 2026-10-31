@@ -56,6 +56,8 @@ pub struct MyRadio {
     pub tx_power: u8,
     pub max_tx_power: u8,
     pub shares_position: bool,
+    /// Meshtastic region and modem preset ("EU_868 LONG_FAST"), when it uses one.
+    pub preset: Option<String>,
 }
 
 pub enum FromRadio {
@@ -107,6 +109,12 @@ pub enum Ping {
         noise: i16,
     },
     Failed(String),
+    /// A Meshtastic traceroute answer.
+    Trace {
+        rtt_ms: u64,
+        hops: u8,
+        snr: Option<f32>,
+    },
 }
 
 impl ToRadio {

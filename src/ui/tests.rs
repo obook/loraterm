@@ -485,6 +485,7 @@ fn radio_app() -> App {
         tx_power: 22,
         max_tx_power: 22,
         shares_position: true,
+        preset: None,
     }));
     app.apply(FromRadio::Nodes(nodes(11)));
     app.selected = 0;
@@ -651,4 +652,30 @@ fn header_names_the_firmware() {
     assert!(normal.contains("Connected to Meshtastic_d940 (Meshtastic)"), "{normal}");
     let hacker = screen(&app);
     assert!(hacker.contains(">> LINK ESTABLISHED :: Meshtastic_d940 :: MESHTASTIC"), "{hacker}");
+}
+
+#[test]
+fn cards_show_meshtastic_results() {
+    let mut app = relay_app();
+    app.apply(FromRadio::Pong {
+        prefix: "5545fc8a91d2".into(),
+        ping: crate::app::Ping::Trace {
+            rtt_ms: 1500,
+            hops: 2,
+            snr: Some(4.5),
+        },
+    });
+    let s = screen(&app);
+    for want in ["TRACE", "1.5 s  2 HOPS", "SNR", "4.5 dB"] {
+        assert!(s.contains(want), "{want} missing in\n{s}");
+    }
+    let mut radio = radio_app();
+    let me = MyRadio {
+        preset: Some("EU_868 LONG_FAST".into()),
+        freq_khz: 0,
+        ..radio.me.clone().unwrap()
+    };
+    radio.apply(FromRadio::MyRadio(me));
+    let s = screen(&radio);
+    assert!(s.contains("EU_868 LONG_FAST") && !s.contains("MHz"), "{s}");
 }

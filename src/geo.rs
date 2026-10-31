@@ -11,6 +11,14 @@ pub struct Pos {
     pub lon: f64,
 }
 
+/// A Meshtastic position (1e-7 degrees); (0, 0) means none.
+pub fn pos_from_e7(lat: i32, lon: i32) -> Option<Pos> {
+    (lat != 0 || lon != 0).then(|| Pos {
+        lat: lat as f64 / 1e7,
+        lon: lon as f64 / 1e7,
+    })
+}
+
 /// MeshCore sends positions in microdegrees; (0, 0) means "no position".
 pub fn pos_from_micro(lat: i32, lon: i32) -> Option<Pos> {
     (lat != 0 || lon != 0).then(|| Pos {
