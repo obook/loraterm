@@ -5,7 +5,7 @@
 //!
 //! Author: O. Booklage
 //! Date: October 2026
-//! Licence: MIT
+//! Licence: GPL-3.0
 
 use ratatui::layout::Rect;
 use ratatui::style::Modifier;

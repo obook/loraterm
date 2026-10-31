@@ -4,7 +4,7 @@
 //!
 //! Author: O. Booklage
 //! Date: October 2026
-//! Licence: MIT
+//! Licence: GPL-3.0
 
 use std::f64::consts::PI;
 

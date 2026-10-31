@@ -4,7 +4,7 @@
 //!
 //! Author: O. Booklage
 //! Date: October 2026
-//! Licence: MIT
+//! Licence: GPL-3.0
 
 use chrono::TimeZone;
 use unicode_width::UnicodeWidthChar;

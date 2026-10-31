@@ -5,7 +5,7 @@
 //!
 //! Author: O. Booklage
 //! Date: October 2026
-//! Licence: MIT
+//! Licence: GPL-3.0
 use image::{Rgba, RgbaImage};
 
 use super::compose::put;

@@ -3,7 +3,7 @@
 //!
 //! Author: O. Booklage
 //! Date: October 2026
-//! Licence: MIT
+//! Licence: GPL-3.0
 
 use super::compose::*;
 use super::icons::*;
