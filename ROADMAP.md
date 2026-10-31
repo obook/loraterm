@@ -29,25 +29,33 @@ ELECROW ThinkNode M5 (firmware MeshCore Companion Bluetooth v1.18.0).
 
 ## Meshtastic support
 
-The M5 runs either firmware. The program would pick the right protocol on
-its own, from what the M5 advertises over Bluetooth.
+The M5 runs either firmware; the program picks the protocol on its own,
+from what the radio advertises over Bluetooth. Design and plan:
+[docs/meshtastic.md](docs/meshtastic.md),
+[docs/meshtastic-plan.md](docs/meshtastic-plan.md).
 
 - [x] License: the project is GPL-3.0, like the `meshtastic` crate 0.1.9
-- [ ] Read the crate's code: Bluetooth on Linux, a D-Bus connection opened
-  on each connect (risk of duplicated notifications)
-- [ ] Detect the firmware during the Bluetooth scan from the advertised
+- [x] Read the crate: its released Bluetooth code has a bug and its own
+  BLE manager, so only its protobuf types are used; the transport is ours,
+  on the shared manager
+- [x] Detect the firmware during the Bluetooth scan from the advertised
   service UUID: MeshCore `6e400001-...`, Meshtastic `6ba1b218-...`
-- [ ] `src/radio/meshtastic/` module that sends the same `FromRadio` and
+- [x] `src/radio/meshtastic/` module that sends the same `FromRadio` and
   takes the same `ToRadio` as the MeshCore side
-- [ ] Nodes and positions from the Meshtastic node database
-- [ ] Messages: channel 0 as the public channel, direct messages, receipts
-- [ ] Battery: percentage given by the firmware
-- [ ] Ping: traceroute instead of the repeater status request
-- [ ] Node types: Meshtastic roles (CLIENT, ROUTER...) on the card and
+- [x] Nodes and positions from the Meshtastic node database
+- [x] Messages: channel 0 as the public channel, direct messages, receipts
+- [x] Battery: percentage given by the firmware
+- [x] Ping: traceroute instead of the repeater status request
+- [x] Node types: Meshtastic roles (CLIENT, ROUTER...) on the card and
   the map
-- [ ] Detected firmware shown in the header
-- [ ] Tests for the conversions from Meshtastic to our types
-- [ ] Try it on the M5 flashed with Meshtastic
+- [x] Detected firmware shown in the header
+- [x] Tests for the conversions from Meshtastic to our types
+- [x] Try it on the M5 flashed with Meshtastic: `--probe`, connection,
+  header and battery
+- [ ] Message exchange and traceroute with another Meshtastic node
+- [ ] MeshCore check after the switch back (restore the backup, re-pair)
+- [ ] New name for the project: "meshcore-m5" no longer fits; move the
+  history to the new data path
 
 ## Documentation and release
 

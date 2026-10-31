@@ -1,11 +1,12 @@
 # meshcore-m5
 
-A terminal client for a MeshCore companion radio over Bluetooth. You can
-send and receive messages, direct or on the public channel, and see the
-nodes on a map.
+A terminal client for a MeshCore or Meshtastic radio over Bluetooth. You
+can send and receive messages, direct or on the public channel, and see the
+nodes on a map. The program finds out which firmware the radio runs.
 
-Tested on Linux (BlueZ) with an ELECROW ThinkNode M5 running the MeshCore
-Companion Bluetooth v1.18.0 firmware from https://meshcore.io/flasher.
+Tested on Linux (BlueZ) with an ELECROW ThinkNode M5 running either the
+MeshCore Companion Bluetooth v1.18.0 firmware from
+https://meshcore.io/flasher or Meshtastic 2.7.26.
 
 ## Build
 
@@ -19,8 +20,9 @@ The program is `target/release/meshcore-m5`.
 
 ## Pair the radio
 
-Pair once from `bluetoothctl`. The radio wants a bond made with its PIN;
-pairing from the KDE Bluetooth settings leaves a bond the radio rejects.
+Pair once from `bluetoothctl`, under either firmware. The radio wants a
+bond made with its PIN; pairing from the KDE Bluetooth settings leaves a
+bond the radio drops a few seconds after each connection.
 
 ```
 bluetoothctl
@@ -31,7 +33,9 @@ pair A4:CB:8F:CB:D9:41
 ```
 
 Put your radio's address in the last line, then type the PIN shown on the
-radio's screen (the M5 picks a new one at each boot). To check the link:
+radio's screen (the M5 picks a new one at each boot). After switching the
+radio to the other firmware, run `remove` with its address first and pair
+again: the old bond no longer works. To check the link:
 
 ```
 meshcore-m5 --probe
@@ -44,7 +48,19 @@ meshcore-m5
 ```
 
 A menu asks for the look, Normal or Hacker. The program then connects to
-the first "MeshCore-..." radio it finds and reconnects on its own.
+the first radio it finds, MeshCore (named "MeshCore-...") or Meshtastic
+(found by its Bluetooth service), and reconnects on its own. The header
+names the firmware.
+
+With Meshtastic:
+
+- channel 0 is the public channel; direct messages get a receipt when the
+  destination acknowledges them;
+- nodes come from the radio's node database, without a contact list;
+- `p` traces the route to any node (traceroute) instead of asking a
+  repeater for its status;
+- the program sets the radio's clock at each connection;
+- the conversations of the two firmwares are kept apart in the history.
 
 Options:
 
@@ -65,7 +81,8 @@ made of half blocks.
 - `+` and `-`: zoom the map
 - Enter: send the message you typed
 - PgUp and PgDn: scroll the conversation
-- `p`: ping the selected node
+- `p`: ping the selected node (MeshCore repeater or room), or trace the
+  route to it (Meshtastic)
 - `q` or Ctrl+C: quit
 
 Outside the input line only, `p` pings and `q` quits.
