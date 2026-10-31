@@ -579,6 +579,25 @@ fn no_message_to_my_own_radio() {
 }
 
 #[test]
+fn no_message_or_ping_to_my_own_id() {
+    let mut app = connected();
+    let me = my_radio();
+    // An old conversation keyed by my own id, as the history can hold.
+    app.apply(FromRadio::Record(incoming(&me.prefix, "old")));
+    app.apply(FromRadio::MyRadio(me));
+    let index = app.rows().iter().position(|r| r.conv == "abcdef012345");
+    app.selected = index.expect("row for my own id");
+    type_text(&mut app, "hi");
+    assert_eq!(press(&mut app, KeyCode::Enter), None);
+    assert_eq!(app.notice.as_deref(), Some("That is your own radio"));
+    app.notice = None;
+    app.input.clear();
+    app.focus = Focus::Contacts;
+    assert_eq!(press(&mut app, KeyCode::Char('p')), None);
+    assert_eq!(app.notice.as_deref(), Some("That is your own radio"));
+}
+
+#[test]
 fn battery_details_and_link_time_are_kept() {
     let mut app = App::new("x", vec![]);
     app.apply(FromRadio::Battery(Battery {
