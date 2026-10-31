@@ -32,6 +32,12 @@ pub fn spawn(
     (cmd_tx, task)
 }
 
+/// Why no radio connected: a stale bond, when one was found, since the user can fix it;
+/// else the last error.
+pub(super) fn not_found(last: anyhow::Error, repair: Option<anyhow::Error>) -> anyhow::Error {
+    repair.unwrap_or(last)
+}
+
 /// A connected radio, of either firmware.
 enum Radio {
     MeshCore(MeshCore),
@@ -59,6 +65,8 @@ pub(super) async fn run(
             tracing::info!("BLE scan failed: {e:#}");
             vec![]
         });
+        // A radio whose bond is stale does not stop the others from being tried.
+        let mut repair = None;
         for Candidate { name, firmware } in list {
             if tx
                 .send(FromRadio::Link(Link::Searching(name.clone())))
@@ -71,19 +79,17 @@ pub(super) async fn run(
                 Firmware::Meshtastic => Transport::connect(&name).await.map(Radio::Meshtastic),
             }
             .map(|radio| (radio, name));
-            match &found {
+            match found {
                 Ok(_) => break,
-                // A stale Bluetooth cache does not heal by retrying: say what to do and stop.
                 Err(e) if e.is::<RepairNeeded>() => {
-                    tracing::error!("radio: {e:#}");
-                    let _ = tx.send(FromRadio::Link(Link::Lost(format!(
-                        "{e:#} - fix it, then restart"
-                    ))));
-                    return;
+                    tracing::warn!("radio: {e:#}");
+                    repair = Some(e);
+                    found = Err(anyhow::anyhow!("no radio found"));
                 }
                 Err(_) => {}
             }
         }
+        let found = found.map_err(|e| not_found(e, repair));
         let reason = match found {
             Ok((mut radio, name)) => {
                 let end = match &mut radio {
@@ -114,6 +120,13 @@ pub(super) async fn run(
                     }
                     Err(e) => format!("{e:#}"),
                 }
+            }
+            Err(e) if e.is::<RepairNeeded>() => {
+                // Retrying will not heal a stale bond: say what to do, and keep trying, so
+                // the radio comes back once it is paired again.
+                let _ = tx.send(FromRadio::Link(Link::Lost(format!("{e:#}"))));
+                tokio::time::sleep(RETRY).await;
+                continue;
             }
             Err(e) => {
                 // Most often the radio is busy with a phone: keep the "Searching" banner

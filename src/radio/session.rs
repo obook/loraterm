@@ -19,9 +19,9 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use super::convert::{channel_msg, contact_msg, lipo_percent, my_radio};
 use super::link::now;
 use super::ping::ping;
-use super::{Battery, Firmware, FromRadio, HistoryWriteFailed, Link, Node, ToRadio};
+use super::{Battery, Firmware, FromRadio, HistoryWriteFailed, Link, MyRadio, Node, ToRadio};
 use crate::config::{CHECK_EVERY, CONTACTS_TIMEOUT};
-use crate::geo::pos_from_micro;
+use crate::geo::{pos_from_micro, Pos};
 use crate::history::{self, Msg, Record, PUBLIC};
 
 /// One connection. Ok(true): the link dropped; Ok(false): the UI is gone.
@@ -35,14 +35,13 @@ pub(super) async fn session(
     // Subscribe first, so no push is missed while starting.
     let mut events = radio.event_stream();
     let me = radio.commands().lock().await.send_appstart().await?;
-    let _ = tx.send(FromRadio::SelfPos(pos_from_micro(me.adv_lat, me.adv_lon)));
     let dev = radio.commands().lock().await.send_device_query().await;
     if let Err(e) = &dev {
         tracing::info!("device query: {e}");
     }
-    let _ = tx.send(FromRadio::MyRadio(my_radio(&me, dev.as_ref().ok())));
-    let _ = tx.send(FromRadio::Firmware(Firmware::MeshCore));
-    let _ = tx.send(FromRadio::Link(Link::Connected(name.to_string())));
+    let card = my_radio(&me, dev.as_ref().ok());
+    let pos = pos_from_micro(me.adv_lat, me.adv_lon);
+    announce(tx, Firmware::MeshCore, card, pos, name);
     // The firmware refuses to move its clock back (it answers an error, which meshcore-rs only
     // sees as a timeout); a GPS radio is often a second ahead. A clock not set is no link failure.
     let device_time = radio.commands().lock().await.get_time().await?;
@@ -101,6 +100,21 @@ pub(super) async fn session(
             }
         }
     }
+}
+
+/// The start of a session, in this order: the firmware first, so the interface drops what it
+/// knew of the other firmware before it gets this radio's card.
+pub(super) fn announce(
+    tx: &Sender<FromRadio>,
+    firmware: Firmware,
+    me: MyRadio,
+    pos: Option<Pos>,
+    name: &str,
+) {
+    let _ = tx.send(FromRadio::Firmware(firmware));
+    let _ = tx.send(FromRadio::MyRadio(me));
+    let _ = tx.send(FromRadio::SelfPos(pos));
+    let _ = tx.send(FromRadio::Link(Link::Connected(name.to_string())));
 }
 
 /// Read the battery; doubles as the link check, since a dead link makes it fail.

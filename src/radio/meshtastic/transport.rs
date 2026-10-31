@@ -77,12 +77,15 @@ impl Transport {
                 .iter()
                 .find(|c| c.uuid == uuid)
                 .cloned()
-                .ok_or_else(|| anyhow::anyhow!("{name}: no characteristic {uuid}"))
+                .ok_or_else(|| anyhow::Error::new(RepairNeeded(name.to_string())))
         };
         let (to_radio, from_radio, from_num) = (get(TO_RADIO)?, get(FROM_RADIO)?, get(FROM_NUM)?);
         // A subscription left by an earlier session would deliver every notification twice.
         let _ = radio.unsubscribe(&from_num).await;
-        radio.subscribe(&from_num).await?;
+        if let Err(e) = radio.subscribe(&from_num).await {
+            tracing::warn!("{name}: subscribe failed: {e}");
+            return Err(RepairNeeded(name.to_string()).into());
+        }
         tracing::debug!("{name}: subscribed to FromNum");
         let notes = radio
             .notifications()
@@ -105,14 +108,26 @@ impl Transport {
         Ok(())
     }
 
-    /// Everything the radio has queued for us.
-    pub async fn drain(&self) -> anyhow::Result<Vec<protobufs::FromRadio>> {
-        let chunks =
-            read_until_empty(|| async { Ok(self.radio.read(&self.from_radio).await?) }).await?;
-        chunks
-            .iter()
-            .map(|c| Ok(protobufs::FromRadio::decode(c.as_slice())?))
-            .collect()
+    /// Everything the radio has queued for us. Each read takes a message out of the radio, so
+    /// what was read comes back even when a later read fails; the error comes with it.
+    pub async fn drain(&self) -> (Vec<protobufs::FromRadio>, Option<anyhow::Error>) {
+        let (chunks, error) =
+            read_until_empty(|| async { Ok(self.radio.read(&self.from_radio).await?) }).await;
+        (chunks.iter().filter_map(|c| decode(c)).collect(), error)
+    }
+
+    /// The next queued message, or None when the queue is empty. Reads one message at a time,
+    /// so nothing past the end of the config handshake leaves the radio.
+    pub async fn next(&self) -> anyhow::Result<Option<protobufs::FromRadio>> {
+        loop {
+            let chunk = self.radio.read(&self.from_radio).await?;
+            if chunk.is_empty() {
+                return Ok(None);
+            }
+            if let Some(msg) = decode(&chunk) {
+                return Ok(Some(msg));
+            }
+        }
     }
 
     /// Wait for the radio to say it has something; false once the link is gone.
@@ -142,18 +157,31 @@ async fn find(name: &str) -> anyhow::Result<Peripheral> {
     Err(anyhow::anyhow!("{name} not found"))
 }
 
-/// Read until the radio answers an empty value: that is how it says its queue is empty.
-pub(super) async fn read_until_empty<F, Fut>(mut read: F) -> anyhow::Result<Vec<Vec<u8>>>
+/// Read until the radio answers an empty value: that is how it says its queue is empty. A
+/// failed read ends it, and the chunks read so far still come back.
+pub(super) async fn read_until_empty<F, Fut>(mut read: F) -> (Vec<Vec<u8>>, Option<anyhow::Error>)
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = anyhow::Result<Vec<u8>>>,
 {
     let mut chunks = vec![];
     loop {
-        let chunk = read().await?;
-        if chunk.is_empty() {
-            return Ok(chunks);
+        match read().await {
+            Ok(chunk) if chunk.is_empty() => return (chunks, None),
+            Ok(chunk) => chunks.push(chunk),
+            Err(e) => return (chunks, Some(e)),
         }
-        chunks.push(chunk);
+    }
+}
+
+/// One message from the radio; one that does not decode is logged and skipped, so it cannot
+/// take the rest of a batch down with it.
+pub(super) fn decode(chunk: &[u8]) -> Option<protobufs::FromRadio> {
+    match protobufs::FromRadio::decode(chunk) {
+        Ok(msg) => Some(msg),
+        Err(e) => {
+            tracing::warn!("Meshtastic: undecodable message skipped: {e}");
+            None
+        }
     }
 }

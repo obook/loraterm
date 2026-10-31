@@ -25,8 +25,8 @@ use crate::config::{CHECK_EVERY, CONTACTS_TIMEOUT, PING_TIMEOUT};
 use crate::geo::pos_from_e7;
 use crate::history::{Msg, Record, MT_PUBLIC};
 use crate::radio::link::now;
-use crate::radio::session::save;
-use crate::radio::{Firmware, FromRadio, HistoryWriteFailed, Link, Ping, ToRadio};
+use crate::radio::session::{announce, save};
+use crate::radio::{Firmware, FromRadio, HistoryWriteFailed, Ping, ToRadio};
 
 /// Destination of a channel message.
 const BROADCAST: u32 = 0xffff_ffff;
@@ -60,39 +60,62 @@ pub(in crate::radio) fn absorb(snap: &mut Snapshot, msg: pb::FromRadio, config_i
     false
 }
 
-/// Ask for the config and the node database, and wait for all of it.
+/// Ask for the config and the node database, and wait for all of it. Reads one message at a
+/// time and stops at the end of the config, so later messages stay in the radio. `snap` is
+/// the caller's: packets it got before a failure are not lost. The timeout runs only while
+/// nothing comes, so a large node database has the time it needs.
 pub(in crate::radio) async fn handshake(
     t: &mut Transport,
     ids: &mut PacketIds,
-) -> anyhow::Result<Snapshot> {
+    snap: &mut Snapshot,
+) -> anyhow::Result<()> {
     let id = ids.next();
     t.send(&pb::ToRadio {
         payload_variant: Some(to_radio::PayloadVariant::WantConfigId(id)),
     })
     .await?;
     tracing::debug!("want_config {id} sent");
-    let mut snap = Snapshot::default();
-    let wait = async {
-        loop {
-            let mut done = false;
-            // The whole batch: packets can follow the end of the config.
-            let batch = t.drain().await?;
-            tracing::debug!("handshake: {} messages", batch.len());
-            for msg in batch {
-                done |= absorb(&mut snap, msg, id);
+    loop {
+        match t.next().await? {
+            Some(msg) => {
+                if absorb(snap, msg, id) {
+                    return Ok(());
+                }
             }
-            if done {
-                return anyhow::Ok(());
-            }
-            if !t.notified().await {
-                anyhow::bail!("link lost during the config handshake");
+            None => {
+                let alive = tokio::time::timeout(CONTACTS_TIMEOUT, t.notified())
+                    .await
+                    .map_err(|_| anyhow::anyhow!("config handshake timed out"))?;
+                if !alive {
+                    anyhow::bail!("link lost during the config handshake");
+                }
             }
         }
-    };
-    tokio::time::timeout(CONTACTS_TIMEOUT, wait)
-        .await
-        .map_err(|_| anyhow::anyhow!("config handshake timed out"))??;
-    Ok(snap)
+    }
+}
+
+/// The text messages among the packets the handshake took out of the radio.
+pub(in crate::radio) fn pending_msgs(snap: &Snapshot) -> Vec<Msg> {
+    let names = names(&snap.nodes);
+    snap.pending
+        .iter()
+        .filter(|p| p.from != snap.my_num)
+        .filter_map(|p| match &p.payload_variant {
+            Some(PayloadVariant::Decoded(d)) if d.portnum == PortNum::TextMessageApp as i32 => {
+                Some(text_msg(p, &String::from_utf8_lossy(&d.payload), snap.my_num, &names))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+/// Node number -> name, for the nodes that have one.
+fn names(nodes: &HashMap<u32, pb::NodeInfo>) -> HashMap<u32, String> {
+    nodes
+        .iter()
+        .filter_map(|(num, n)| Some((*num, n.user.as_ref()?.long_name.clone())))
+        .filter(|(_, name)| !name.is_empty())
+        .collect()
 }
 
 /// Packet ids: a counter seeded from the clock, never 0.
@@ -124,13 +147,22 @@ pub(in crate::radio) fn failed(cmd: &ToRadio, error: String) -> FromRadio {
     }
 }
 
-/// A packet for the mesh, on the primary channel.
-fn packet(to: u32, id: u32, port: PortNum, payload: Vec<u8>, want_ack: bool) -> pb::ToRadio {
+/// A packet for the mesh, on the primary channel. The hop limit is set here: the firmware
+/// may keep a 0 from the client, and the packet would only reach direct neighbors.
+pub(in crate::radio) fn packet(
+    to: u32,
+    id: u32,
+    port: PortNum,
+    payload: Vec<u8>,
+    want_ack: bool,
+    hop_limit: u32,
+) -> pb::ToRadio {
     pb::ToRadio {
         payload_variant: Some(to_radio::PayloadVariant::Packet(pb::MeshPacket {
             to,
             id,
             want_ack,
+            hop_limit,
             payload_variant: Some(PayloadVariant::Decoded(pb::Data {
                 portnum: port as i32,
                 payload,
@@ -144,8 +176,10 @@ fn packet(to: u32, id: u32, port: PortNum, payload: Vec<u8>, want_ack: bool) -> 
 }
 
 /// What the session keeps between packets.
-struct Live {
+pub(in crate::radio) struct Live {
     my_num: u32,
+    /// Hop limit of the packets we send (the radio's LoRa setting).
+    hop_limit: u32,
     nodes: HashMap<u32, pb::NodeInfo>,
     /// Direct messages waiting for their ack: packet id -> destination.
     sent: HashMap<u32, u32>,
@@ -156,12 +190,34 @@ struct Live {
 }
 
 impl Live {
-    fn names(&self) -> HashMap<u32, String> {
-        self.nodes
-            .iter()
-            .filter_map(|(num, n)| Some((*num, n.user.as_ref()?.long_name.clone())))
-            .filter(|(_, name)| !name.is_empty())
-            .collect()
+    pub(in crate::radio) fn new(my_num: u32, nodes: HashMap<u32, pb::NodeInfo>, hop_limit: u32) -> Live {
+        Live {
+            my_num,
+            hop_limit,
+            nodes,
+            sent: HashMap::new(),
+            traces: HashMap::new(),
+            nodes_stale: false,
+        }
+    }
+
+    /// Every message of a batch: they are already out of the radio, so a failed history write
+    /// does not stop the others from being saved and shown. The first error comes back.
+    pub(in crate::radio) fn take_all(
+        &mut self,
+        batch: Vec<pb::FromRadio>,
+        history: &Path,
+        tx: &Sender<FromRadio>,
+    ) -> anyhow::Result<()> {
+        let mut first = Ok(());
+        for msg in batch {
+            if let Err(e) = self.take(msg, history, tx) {
+                if first.is_ok() {
+                    first = Err(e);
+                }
+            }
+        }
+        first
     }
 
     fn entry(&mut self, num: u32) -> &mut pb::NodeInfo {
@@ -215,7 +271,7 @@ impl Live {
         match PortNum::try_from(data.portnum) {
             Ok(PortNum::TextMessageApp) if p.from != self.my_num => {
                 let text = String::from_utf8_lossy(&data.payload);
-                let msg = text_msg(&p, &text, self.my_num, &self.names());
+                let msg = text_msg(&p, &text, self.my_num, &names(&self.nodes));
                 save(history, tx, Record::Msg(msg))?;
             }
             Ok(PortNum::NodeinfoApp) => {
@@ -288,13 +344,15 @@ impl Live {
                 let to = node_num(prefix).ok_or_else(|| anyhow::anyhow!("not a Meshtastic node"))?;
                 let id = ids.next();
                 let bytes = text.as_bytes().to_vec();
-                t.send(&packet(to, id, PortNum::TextMessageApp, bytes, true)).await?;
+                t.send(&packet(to, id, PortNum::TextMessageApp, bytes, true, self.hop_limit))
+                    .await?;
                 self.sent.insert(id, to);
                 save(history, tx, outgoing(prefix, text, Some(ack_tag(id))))
             }
             ToRadio::SendPublic { text } => {
                 let bytes = text.as_bytes().to_vec();
-                t.send(&packet(BROADCAST, ids.next(), PortNum::TextMessageApp, bytes, false))
+                let id = ids.next();
+                t.send(&packet(BROADCAST, id, PortNum::TextMessageApp, bytes, false, self.hop_limit))
                     .await?;
                 save(history, tx, outgoing(MT_PUBLIC, text, None))
             }
@@ -302,7 +360,8 @@ impl Live {
                 let to = node_num(prefix).ok_or_else(|| anyhow::anyhow!("not a Meshtastic node"))?;
                 let id = ids.next();
                 let route = pb::RouteDiscovery::default().encode_to_vec();
-                t.send(&packet(to, id, PortNum::TracerouteApp, route, false)).await?;
+                t.send(&packet(to, id, PortNum::TracerouteApp, route, false, self.hop_limit))
+                    .await?;
                 self.traces.insert(id, (prefix.clone(), Instant::now()));
                 Ok(())
             }
@@ -338,16 +397,20 @@ pub(in crate::radio) async fn session(
     cmds: &mut UnboundedReceiver<ToRadio>,
 ) -> anyhow::Result<bool> {
     let mut ids = PacketIds::new();
-    let snap = handshake(t, &mut ids).await?;
+    let mut snap = Snapshot::default();
+    if let Err(e) = handshake(t, &mut ids, &mut snap).await {
+        // Messages the handshake took out of the radio are saved before giving up.
+        for msg in pending_msgs(&snap) {
+            save(history, tx, Record::Msg(msg))?;
+        }
+        return Err(e);
+    }
     let me = snap.nodes.get(&snap.my_num);
     let my_pos = me
         .and_then(|m| m.position.as_ref())
         .and_then(|p| pos_from_e7(p.latitude_i?, p.longitude_i?));
-    let _ = tx.send(FromRadio::Firmware(Firmware::Meshtastic));
     let radio = my_radio(snap.my_num, me, snap.meta.as_ref(), snap.lora.as_ref());
-    let _ = tx.send(FromRadio::MyRadio(radio));
-    let _ = tx.send(FromRadio::SelfPos(my_pos));
-    let _ = tx.send(FromRadio::Link(Link::Connected(name.to_string())));
+    announce(tx, Firmware::Meshtastic, radio, my_pos, name);
     if let Some(b) = me.and_then(|m| m.device_metrics.as_ref()).and_then(battery) {
         let _ = tx.send(FromRadio::Battery(b));
     }
@@ -356,20 +419,26 @@ pub(in crate::radio) async fn session(
         payload_variant: Some(admin_message::PayloadVariant::SetTimeOnly(now())),
         ..Default::default()
     };
-    let set_time = packet(snap.my_num, ids.next(), PortNum::AdminApp, admin.encode_to_vec(), false);
+    // The radio's own setting; Meshtastic's default is 3.
+    let hop_limit = snap.lora.as_ref().map_or(0, |l| l.hop_limit);
+    let hop_limit = if hop_limit == 0 { 3 } else { hop_limit };
+    let admin = admin.encode_to_vec();
+    let set_time = packet(snap.my_num, ids.next(), PortNum::AdminApp, admin, false, hop_limit);
     if let Err(e) = t.send(&set_time).await {
         tracing::info!("radio clock not set: {e:#}");
     }
-    let mut live = Live {
-        my_num: snap.my_num,
-        nodes: snap.nodes,
-        sent: HashMap::new(),
-        traces: HashMap::new(),
-        nodes_stale: false,
-    };
+    let mut live = Live::new(snap.my_num, snap.nodes, hop_limit);
     live.send_nodes(tx);
-    for p in snap.pending {
-        live.packet(p, history, tx)?;
+    let pending = snap.pending.into_iter().map(|p| pb::FromRadio {
+        payload_variant: Some(from_radio::PayloadVariant::Packet(p)),
+        ..Default::default()
+    });
+    live.take_all(pending.collect(), history, tx)?;
+    // Messages queued after the end of the config.
+    let (batch, error) = t.drain().await;
+    live.take_all(batch, history, tx)?;
+    if let Some(e) = error {
+        return Err(e);
     }
 
     let mut tick = tokio::time::interval(CHECK_EVERY);
@@ -380,8 +449,10 @@ pub(in crate::radio) async fn session(
                 if !alive {
                     return Ok(true);
                 }
-                for msg in t.drain().await? {
-                    live.take(msg, history, tx)?;
+                let (batch, error) = t.drain().await;
+                live.take_all(batch, history, tx)?;
+                if let Some(e) = error {
+                    return Err(e);
                 }
             }
             cmd = cmds.recv() => {
@@ -411,9 +482,19 @@ pub(in crate::radio) async fn session(
 /// --probe: the radio's state from the handshake, printed, then the link dropped.
 pub(crate) async fn probe(name: &str) -> anyhow::Result<()> {
     let mut t = Transport::connect(name).await?;
-    let snap = handshake(&mut t, &mut PacketIds::new()).await;
+    let mut snap = Snapshot::default();
+    let shaken = handshake(&mut t, &mut PacketIds::new(), &mut snap).await;
     t.disconnect().await;
-    let snap = snap?;
+    // The handshake took these out of the radio: keep them in the history.
+    let msgs = pending_msgs(&snap);
+    if !msgs.is_empty() {
+        let path = crate::history::default_path();
+        for msg in &msgs {
+            crate::history::append(&path, &Record::Msg(msg.clone()))?;
+        }
+        println!("saved    {} waiting messages", msgs.len());
+    }
+    shaken?;
     let me = snap.nodes.get(&snap.my_num);
     let radio = my_radio(snap.my_num, me, snap.meta.as_ref(), snap.lora.as_ref());
     println!("device   {}", radio.name);

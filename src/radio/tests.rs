@@ -257,9 +257,30 @@ fn classify_tells_the_firmwares_apart() {
     assert_eq!(classify(Some("MeshCore-bbok"), &[]), Some(Firmware::MeshCore));
     assert_eq!(classify(Some("Nordic_UART"), &[MESHCORE_SERVICE]), None);
     assert_eq!(classify(None, &[]), None);
-    // A stale BlueZ cache can list both: the Meshtastic service wins, the session checks it.
+    // BlueZ keeps the services of the other firmware in its cache; the advertised name is
+    // fresh, so it decides.
     assert_eq!(
         classify(Some("MeshCore-bbok"), &[MESHTASTIC_SERVICE]),
-        Some(Firmware::Meshtastic)
+        Some(Firmware::MeshCore)
     );
+}
+
+#[test]
+fn announce_sends_the_firmware_first() {
+    let (tx, rx) = std::sync::mpsc::channel();
+    announce(&tx, Firmware::Meshtastic, MyRadio::default(), None, "Meshtastic_d940");
+    let got: Vec<FromRadio> = rx.try_iter().collect();
+    assert!(matches!(got[0], FromRadio::Firmware(Firmware::Meshtastic)));
+    assert!(matches!(got[1], FromRadio::MyRadio(_)));
+    assert!(
+        matches!(got.last(), Some(FromRadio::Link(Link::Connected(n))) if n == "Meshtastic_d940")
+    );
+}
+
+#[test]
+fn a_stale_bluetooth_cache_is_reported_when_nothing_else_connects() {
+    use super::meshtastic::RepairNeeded;
+    let repair = Some(RepairNeeded("Meshtastic_d940".into()).into());
+    assert!(super::task::not_found(anyhow::anyhow!("timeout"), repair).is::<RepairNeeded>());
+    assert!(!super::task::not_found(anyhow::anyhow!("timeout"), None).is::<RepairNeeded>());
 }

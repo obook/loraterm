@@ -18,14 +18,34 @@ async fn read_until_empty_stops_at_the_first_empty_read() {
         let chunk = chunks[i].clone();
         async move { anyhow::Ok(chunk) }
     };
-    assert_eq!(read_until_empty(read).await.unwrap(), vec![vec![1], vec![2, 3]]);
+    let (chunks, error) = read_until_empty(read).await;
+    assert_eq!(chunks, vec![vec![1], vec![2, 3]]);
+    assert!(error.is_none());
     assert_eq!(calls.get(), 3);
 }
 
 #[tokio::test]
 async fn read_until_empty_passes_errors_on() {
     let read = || async { Err::<Vec<u8>, _>(anyhow::anyhow!("link lost")) };
-    assert!(read_until_empty(read).await.is_err());
+    assert!(read_until_empty(read).await.1.is_some());
+}
+
+#[tokio::test]
+async fn read_until_empty_keeps_what_it_read_before_an_error() {
+    let calls = Cell::new(0);
+    let read = || {
+        let i = calls.get();
+        calls.set(i + 1);
+        async move {
+            match i {
+                0 => anyhow::Ok(vec![1u8]),
+                _ => Err(anyhow::anyhow!("link lost")),
+            }
+        }
+    };
+    let (chunks, error) = read_until_empty(read).await;
+    assert_eq!(chunks, vec![vec![1]]);
+    assert!(error.is_some());
 }
 
 #[test]
@@ -206,7 +226,7 @@ fn trace_counts_hops() {
     );
 }
 
-use super::session::{absorb, failed, Snapshot};
+use super::session::{absorb, failed, packet as outgoing, pending_msgs, Live, Snapshot};
 use crate::radio::{FromRadio, ToRadio};
 use meshtastic::protobufs::from_radio::PayloadVariant as Incoming;
 
@@ -254,4 +274,74 @@ fn a_failed_public_send_goes_back_to_the_meshtastic_channel() {
         panic!("not a send failure");
     };
     assert_eq!((conv.as_str(), text.as_str()), (MT_PUBLIC, "hi"));
+}
+
+#[test]
+fn garbage_is_skipped() {
+    use prost::Message;
+    let good = incoming(Incoming::ConfigCompleteId(7)).encode_to_vec();
+    assert!(decode(&good).is_some());
+    assert!(decode(&[0xff, 0xff, 0xff]).is_none());
+}
+
+fn text_packet(from: u32, text: &str) -> pb::MeshPacket {
+    pb::MeshPacket {
+        from,
+        to: 0xffff_ffff,
+        payload_variant: Some(PayloadVariant::Decoded(pb::Data {
+            portnum: pb::PortNum::TextMessageApp as i32,
+            payload: text.as_bytes().to_vec(),
+            ..Default::default()
+        })),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn pending_texts_become_messages() {
+    let mut snap = Snapshot {
+        my_num: 5,
+        ..Default::default()
+    };
+    snap.pending.push(text_packet(9, "hi"));
+    snap.pending.push(pb::MeshPacket {
+        from: 9,
+        payload_variant: Some(PayloadVariant::Decoded(pb::Data {
+            portnum: pb::PortNum::PositionApp as i32,
+            ..Default::default()
+        })),
+        ..Default::default()
+    });
+    let msgs = pending_msgs(&snap);
+    assert_eq!(msgs.len(), 1);
+    assert_eq!((msgs[0].conv.as_str(), msgs[0].text.as_str()), (MT_PUBLIC, "hi"));
+}
+
+#[test]
+fn a_write_failure_does_not_drop_the_rest_of_the_batch() {
+    use crate::history::Record;
+    use crate::radio::HistoryWriteFailed;
+    let (tx, rx) = std::sync::mpsc::channel();
+    let mut live = Live::new(5, HashMap::new(), 3);
+    let batch = vec![
+        incoming(Incoming::Packet(text_packet(9, "a"))),
+        incoming(Incoming::Packet(text_packet(9, "b"))),
+    ];
+    let unwritable = std::path::Path::new("/nonexistent-dir/history.jsonl");
+    let result = live.take_all(batch, unwritable, &tx);
+    assert!(result.unwrap_err().is::<HistoryWriteFailed>());
+    let shown = rx
+        .try_iter()
+        .filter(|m| matches!(m, FromRadio::Record(Record::Msg(_))))
+        .count();
+    assert_eq!(shown, 2);
+}
+
+#[test]
+fn packets_carry_the_hop_limit() {
+    let msg = outgoing(9, 1, pb::PortNum::TextMessageApp, vec![], true, 3);
+    let Some(pb::to_radio::PayloadVariant::Packet(p)) = msg.payload_variant else {
+        panic!("not a packet");
+    };
+    assert_eq!((p.to, p.hop_limit, p.want_ack), (9, 3, true));
 }

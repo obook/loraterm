@@ -29,13 +29,13 @@ pub struct Candidate {
 }
 
 /// The firmware a radio runs, from its advertised name and services; None when it is
-/// neither. The Meshtastic service wins: a stale BlueZ cache can list both, and the session
-/// checks the services once connected.
+/// neither. The name decides first: BlueZ updates it from each advert, while its list of
+/// services keeps those of the other firmware after a switch.
 pub fn classify(name: Option<&str>, services: &[Uuid]) -> Option<Firmware> {
-    if services.contains(&MESHTASTIC_SERVICE) {
-        Some(Firmware::Meshtastic)
-    } else if name.is_some_and(|n| n.starts_with("MeshCore-")) {
+    if name.is_some_and(|n| n.starts_with("MeshCore-")) {
         Some(Firmware::MeshCore)
+    } else if services.contains(&MESHTASTIC_SERVICE) {
+        Some(Firmware::Meshtastic)
     } else {
         None
     }
