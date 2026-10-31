@@ -41,6 +41,13 @@ pub fn classify(name: Option<&str>, services: &[Uuid]) -> Option<Firmware> {
     }
 }
 
+/// Whether a scanned radio is the one asked with --device (a name or an address, any case).
+pub(super) fn is_device(device: Option<&str>, name: Option<&str>, address: &str) -> bool {
+    device.is_none_or(|d| {
+        name.is_some_and(|n| n.eq_ignore_ascii_case(d)) || address.eq_ignore_ascii_case(d)
+    })
+}
+
 /// Every MeshCore or Meshtastic radio BlueZ reports after a scan, or only `device` (a name
 /// or an address). BlueZ also reports radios it only remembers, so the caller tries them in
 /// turn. A `device` the scan does not find is tried as a MeshCore radio, as before.
@@ -48,12 +55,7 @@ pub async fn candidates(device: Option<&str>) -> anyhow::Result<Vec<Candidate>> 
     let found = scan().await?;
     let mut list: Vec<Candidate> = found
         .into_iter()
-        .filter(|(name, address, _)| {
-            device.is_none_or(|d| {
-                name.as_deref().is_some_and(|n| n.eq_ignore_ascii_case(d))
-                    || address.eq_ignore_ascii_case(d)
-            })
-        })
+        .filter(|(name, address, _)| is_device(device, name.as_deref(), address))
         .filter_map(|(name, address, services)| {
             let firmware = classify(name.as_deref(), &services)?;
             Some(Candidate {

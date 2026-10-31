@@ -284,3 +284,21 @@ fn a_stale_bluetooth_cache_is_reported_when_nothing_else_connects() {
     assert!(super::task::not_found(anyhow::anyhow!("timeout"), repair).is::<RepairNeeded>());
     assert!(!super::task::not_found(anyhow::anyhow!("timeout"), None).is::<RepairNeeded>());
 }
+
+#[test]
+fn device_matches_a_name_or_an_address_in_any_case() {
+    use super::link::is_device;
+    let addr = "A4:CB:8F:CB:D9:41";
+    assert!(is_device(None, Some("MeshCore-bbok"), addr));
+    assert!(is_device(
+        Some("meshcore-BBOK"),
+        Some("MeshCore-bbok"),
+        addr
+    ));
+    assert!(is_device(Some("a4:cb:8f:cb:d9:41"), None, addr));
+    assert!(!is_device(
+        Some("MeshCore-other"),
+        Some("MeshCore-bbok"),
+        addr
+    ));
+}
