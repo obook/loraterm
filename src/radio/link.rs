@@ -49,7 +49,10 @@ pub async fn candidates(device: Option<&str>) -> anyhow::Result<Vec<Candidate>> 
     let mut list: Vec<Candidate> = found
         .into_iter()
         .filter(|(name, address, _)| {
-            device.is_none_or(|d| name.as_deref() == Some(d) || address == d)
+            device.is_none_or(|d| {
+                name.as_deref().is_some_and(|n| n.eq_ignore_ascii_case(d))
+                    || address.eq_ignore_ascii_case(d)
+            })
         })
         .filter_map(|(name, address, services)| {
             let firmware = classify(name.as_deref(), &services)?;

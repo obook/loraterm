@@ -33,7 +33,7 @@ impl std::fmt::Display for RepairNeeded {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "{} does not offer the Meshtastic service: re-pair the radio with bluetoothctl",
+            "{} does not offer the Meshtastic service: re-pair the radio (bluetoothctl remove <address>, then scripts/pair-radio.py)",
             self.0
         )
     }

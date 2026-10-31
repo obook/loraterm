@@ -8,6 +8,13 @@ Tested on Linux (BlueZ) with an ELECROW ThinkNode M5 running either the
 MeshCore Companion Bluetooth v1.18.0 firmware from
 https://meshcore.io/flasher or Meshtastic 2.7.26.
 
+The two looks, Normal and Hacker (sample data, the map tiles are not shown):
+
+<p>
+  <img src="media/normal.png" alt="Normal look" width="49%">
+  <img src="media/hacker.png" alt="Hacker look" width="49%">
+</p>
+
 ## Build
 
 You need Rust.
