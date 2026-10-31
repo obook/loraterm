@@ -11,7 +11,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Wrap};
 use ratatui::Frame;
 
-use super::format::hhmm;
+use super::format::{ascii_safe, hhmm};
 use super::{faint, panel, strong, text, Theme, CYAN};
 use crate::app::{App, Focus};
 use crate::history::{Msg, PUBLIC};
@@ -36,6 +36,8 @@ pub(super) fn thread_line<'a>(
 ) -> Line<'a> {
     let time = hhmm(msg.ts);
     let from = if msg.outgoing { me } else { &msg.from };
+    let from = ascii_safe(from, app.ascii);
+    let body = ascii_safe(&msg.text, app.ascii).into_owned();
     let mut line = match theme {
         Theme::Normal => Line::from(vec![
             Span::styled(format!("{time} "), faint(theme)),
@@ -45,12 +47,12 @@ pub(super) fn thread_line<'a>(
                     .fg(if msg.outgoing { CYAN } else { Color::White })
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::raw(msg.text.as_str()),
+            Span::raw(body),
         ]),
         Theme::Hacker => Line::from(vec![
             Span::styled(format!("[{time}] "), faint(theme)),
             Span::styled(format!("<{from}> "), strong(theme)),
-            Span::styled(msg.text.as_str(), text(theme)),
+            Span::styled(body, text(theme)),
         ]),
     };
     if let Some(status) = app.status(msg) {
@@ -90,7 +92,7 @@ pub(super) fn draw_conversation(frame: &mut Frame, app: &App, area: Rect, theme:
         if r.conv == PUBLIC {
             public.into()
         } else {
-            r.label.clone()
+            ascii_safe(&r.label, app.ascii).into_owned()
         }
     });
     let focused = app.focus == Focus::Input;
@@ -99,7 +101,7 @@ pub(super) fn draw_conversation(frame: &mut Frame, app: &App, area: Rect, theme:
     } else {
         format!("COMMS // {label}")
     };
-    let block = panel(theme, focused, &title);
+    let block = panel(theme, app.ascii, focused, &title);
     let inner = block.inner(area);
     frame.render_widget(block, area);
     let [thread_area, input_area] =
@@ -127,7 +129,7 @@ pub(super) fn draw_conversation(frame: &mut Frame, app: &App, area: Rect, theme:
     // The end of a long input stays in view.
     let (prompt, cursor) = match theme {
         Theme::Normal => ("> ", "_"),
-        Theme::Hacker => ("root@mesh:~$ ", "█"),
+        Theme::Hacker => ("root@mesh:~$ ", if app.ascii { "_" } else { "█" }),
     };
     let room = usize::from(input_area.width).saturating_sub(prompt.len() + 1);
     let typed = app.input.chars().count();

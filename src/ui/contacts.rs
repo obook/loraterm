@@ -10,7 +10,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{List, ListItem, ListState};
 use ratatui::Frame;
 
-use super::format::{cells, node_id, short};
+use super::format::{ascii_safe, cells, node_id, short};
 use super::{panel, strong, Theme, BLACK, GREEN};
 use crate::app::{App, Focus, MY_RADIO};
 use crate::history::PUBLIC;
@@ -30,10 +30,14 @@ pub(super) fn draw_contacts(frame: &mut Frame, app: &App, area: Rect, theme: The
                     };
                     let label = match r.conv.as_str() {
                         PUBLIC => "# Public".to_string(),
-                        MY_RADIO => format!("◆ {}", r.label),
+                        MY_RADIO => format!("{} {}", if app.ascii { "*" } else { "◆" }, r.label),
                         _ => r.label.clone(),
                     };
-                    format!("{} {:>9} {unread:>3}", cells(&label, 14), r.detail)
+                    format!(
+                        "{} {:>9} {unread:>3}",
+                        cells(&ascii_safe(&label, app.ascii), 14),
+                        r.detail
+                    )
                 }
                 Theme::Hacker => {
                     let unread = if r.unread > 0 {
@@ -48,12 +52,16 @@ pub(super) fn draw_contacts(frame: &mut Frame, app: &App, area: Rect, theme: The
                             .me
                             .as_ref()
                             .map_or("", |me| &me.prefix[..6.min(me.prefix.len())]);
-                        format!("{id:<6} {} {:>6}", cells(&r.label, 10), "LOCAL")
+                        format!(
+                            "{id:<6} {} {:>6}",
+                            cells(&ascii_safe(&r.label, app.ascii), 10),
+                            "LOCAL"
+                        )
                     } else {
                         format!(
                             "{:<6} {} {:>6}{unread:>3}",
                             node_id(&r.conv),
-                            cells(&r.label, 10),
+                            cells(&ascii_safe(&r.label, app.ascii), 10),
                             short(&r.detail)
                         )
                     }
@@ -66,7 +74,7 @@ pub(super) fn draw_contacts(frame: &mut Frame, app: &App, area: Rect, theme: The
     let (title, symbol, highlight) = match theme {
         Theme::Normal => (
             format!("Contacts ({})", app.nodes.len()),
-            "▶ ",
+            if app.ascii { "> " } else { "▶ " },
             if focused {
                 Style::new()
                     .bg(Color::Rgb(0, 60, 80))
@@ -89,7 +97,7 @@ pub(super) fn draw_contacts(frame: &mut Frame, app: &App, area: Rect, theme: The
         ),
     };
     let list = List::new(items)
-        .block(panel(theme, focused, &title))
+        .block(panel(theme, app.ascii, focused, &title))
         .highlight_symbol(symbol)
         .highlight_style(highlight);
     frame.render_stateful_widget(

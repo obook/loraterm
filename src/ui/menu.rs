@@ -46,7 +46,13 @@ pub fn menu_key(selected: Theme, code: KeyCode) -> Menu {
 }
 
 /// Start menu: pick the look.
-pub fn draw_menu(frame: &mut Frame, selected: Theme) {
+pub fn draw_menu(frame: &mut Frame, selected: Theme, ascii: bool) {
+    // The Linux console fonts have no arrows or triangles.
+    let (pointer, arrows) = if ascii {
+        (">", "up/down")
+    } else {
+        ("▶", "↑↓")
+    };
     let [area] = Layout::horizontal([Constraint::Length(44)])
         .flex(Flex::Center)
         .areas(frame.area());
@@ -65,7 +71,10 @@ pub fn draw_menu(frame: &mut Frame, selected: Theme) {
         };
         Line::from(vec![
             Span::raw("   "),
-            Span::styled(format!("{} {name:<8}", if on { "▶" } else { " " }), style),
+            Span::styled(
+                format!("{} {name:<8}", if on { pointer } else { " " }),
+                style,
+            ),
             Span::styled(format!(" {what}"), faint(Theme::Normal)),
         ])
     };
@@ -76,11 +85,14 @@ pub fn draw_menu(frame: &mut Frame, selected: Theme) {
         choice(Theme::Normal, "Normal", "clean, light map"),
         choice(Theme::Hacker, "Hacker", "green terminal, radar"),
         Line::raw(""),
-        Line::styled("   ↑↓ choose   Enter start   q quit", faint(Theme::Normal)),
+        Line::styled(
+            format!("   {arrows} choose   Enter start   q quit"),
+            faint(Theme::Normal),
+        ),
     ];
     frame.render_widget(Clear, area);
     frame.render_widget(
-        Paragraph::new(lines).block(panel(Theme::Normal, true, "meshcore-m5")),
+        Paragraph::new(lines).block(panel(Theme::Normal, ascii, true, "meshcore-m5")),
         area,
     );
 }

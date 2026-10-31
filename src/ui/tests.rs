@@ -89,7 +89,7 @@ fn banner_shows_connected() {
     }));
     app.apply(FromRadio::Nodes(nodes(12)));
     assert!(screen(&app)
-        .contains(">> LINK ESTABLISHED :: MeshCore-bbok :: PWR [#######-] 87% :: 12 NODES"));
+        .contains(">> LINK ESTABLISHED :: MeshCore-bbok :: PWR ▮▮▮▮▮▮▮▯ 87% :: 12 NODES"));
 }
 
 #[test]
@@ -379,7 +379,7 @@ fn normal_banner_is_plain_english() {
     app.apply(FromRadio::Nodes(nodes(12)));
     let s = normal(&app);
     assert!(
-        s.contains("Connected to MeshCore-bbok - battery 87 % [#######-] - 12 contacts")
+        s.contains("Connected to MeshCore-bbok - battery 87 % ▮▮▮▮▮▮▮▯ - 12 contacts")
             && !s.contains(">>"),
         "{s}"
     );
@@ -421,9 +421,10 @@ fn normal_panels_are_plain() {
 
 #[test]
 fn menu_offers_both_looks() {
-    let s = render(|f| draw_menu(f, Theme::Normal));
+    let s = render(|f| draw_menu(f, Theme::Normal, false));
     assert!(s.contains("▶ Normal") && s.contains("Hacker"), "{s}");
-    assert!(render(|f| draw_menu(f, Theme::Hacker)).contains("▶ Hacker"));
+    assert!(render(|f| draw_menu(f, Theme::Hacker, false)).contains("▶ Hacker"));
+    assert!(render(|f| draw_menu(f, Theme::Hacker, true)).contains("> Hacker"));
 }
 
 #[test]
@@ -447,8 +448,13 @@ fn menu_keys() {
 #[test]
 fn battery_gauge() {
     assert_eq!(
-        [gauge(0), gauge(87), gauge(100)],
-        ["[--------]", "[#######-]", "[########]"]
+        [gauge(0, false), gauge(87, false), gauge(100, false)],
+        ["▯▯▯▯▯▯▯▯", "▮▮▮▮▮▮▮▯", "▮▮▮▮▮▮▮▮"]
+    );
+    assert_eq!(
+        gauge(87, true),
+        "[#######-]",
+        "the Linux console has no such blocks"
     );
     assert_eq!([khz(250_000), khz(62_500)], ["250", "62.5"]);
 }
@@ -492,7 +498,7 @@ fn card_for_my_radio() {
         "RADIO :: bbok",
         "ThinkNode M5",
         "v1.18.0",
-        "87 %  3.98 V",
+        "BAT    3.98 V ",
         "12 / 1024 KB",
         "869.525 MHz",
         "BW 250 kHz SF 11 CR 5",
@@ -530,4 +536,108 @@ fn boot_sequence_ends_ready() {
         last.contains(">> READY :: 73") && !last.contains("Decrypting"),
         "{last}"
     );
+}
+
+// ===============================================================
+//  LINUX CONSOLE (ASCII GLYPHS, NO IMAGES)
+// ===============================================================
+
+fn console(mut app: App, theme: Theme) -> String {
+    app.ascii = true;
+    screen_with(&app, theme)
+}
+
+#[test]
+fn console_names_lose_their_emoji_but_keep_their_accents() {
+    assert_eq!(ascii_safe("🐱 SHA-40 Réseau", true), "? SHA-40 Réseau");
+    assert_eq!(ascii_safe("🐱 cat", false), "🐱 cat");
+}
+
+#[test]
+fn console_uses_plain_boxes_and_ascii_marks() {
+    let s = console(radio_app(), Theme::Normal);
+    assert!(s.contains("┌") && !s.contains("╭"), "{s}");
+    assert!(
+        s.contains("> * bbok") && !s.contains("▶") && !s.contains("◆"),
+        "{s}"
+    );
+    assert!(s.contains("battery 87 % [#######-]"), "{s}");
+}
+
+#[test]
+fn console_message_text_is_safe() {
+    let msg = Record::Msg(Msg {
+        ts: 0,
+        conv: "public".into(),
+        from: "Bob 🐱".into(),
+        text: "hi 🐱".into(),
+        outgoing: false,
+        ack: None,
+    });
+    let s = console(App::new("x", vec![msg]), Theme::Hacker);
+    assert!(s.contains("<Bob ?> hi ?"), "{s}");
+    let mut app = App::new("x", vec![]);
+    let cat = Node {
+        prefix: "01".into(),
+        name: "🐱 Cat".into(),
+        ..Default::default()
+    };
+    app.apply(FromRadio::Nodes(vec![cat]));
+    app.selected = 1;
+    let s = console(app, Theme::Hacker);
+    assert!(s.contains("COMMS // ? Cat") && !s.contains('🐱'), "{s}");
+}
+
+#[test]
+fn console_map_is_a_radar_of_letters() {
+    let mut app = App::new("x", vec![]);
+    let me = crate::geo::Pos {
+        lat: 44.80,
+        lon: -0.60,
+    };
+    app.apply(FromRadio::SelfPos(Some(me)));
+    let north = crate::geo::Pos {
+        lat: 44.82,
+        lon: -0.60,
+    };
+    let relay = Node {
+        prefix: "01".into(),
+        name: "Quebec".into(),
+        kind: NodeKind::Repeater,
+        pos: Some(north),
+        ..Default::default()
+    };
+    app.apply(FromRadio::Nodes(vec![relay]));
+    let s = console(app, Theme::Normal);
+    // The radar is the middle panel: columns 33 to 66 of the 100-column test screen.
+    let radar: Vec<String> = s
+        .lines()
+        .map(|line| line.chars().skip(33).take(33).collect())
+        .collect();
+    let row_of = |mark: char| radar.iter().position(|line| line.contains(mark));
+    let (me_row, relay_row) = (row_of('+'), row_of('Q'));
+    assert!(me_row.is_some() && relay_row.is_some(), "{s}");
+    assert!(
+        relay_row < me_row,
+        "the node to the north is drawn above me:\n{s}"
+    );
+    assert!(s.contains("1 cell = "), "a scale:\n{s}");
+    assert!(!s.contains("OpenStreetMap"), "no tiles, no credit:\n{s}");
+}
+
+#[test]
+fn the_map_panel_reports_its_size_in_pixels() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut map = MapState::new(
+        ratatui_image::picker::Picker::halfblocks(),
+        crate::tiles::Tiles::offline(dir.path().into()),
+    );
+    assert_eq!(map.size_px(), None);
+    let app = App::new("x", vec![]);
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
+    terminal
+        .draw(|f| draw(f, &app, &mut map, Theme::Normal))
+        .unwrap();
+    let (w, h) = map.size_px().unwrap();
+    assert!(w > 0 && h > 0, "{w} x {h}");
 }

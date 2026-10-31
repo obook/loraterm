@@ -53,10 +53,31 @@ pub(super) fn node_id(conv: &str) -> &str {
     }
 }
 
-/// Battery as eight cells: "[#######-]".
-pub fn gauge(pct: u8) -> String {
+/// Battery as eight cells: "▮▮▮▮▮▮▮▯", or "[#######-]" on the Linux console.
+pub fn gauge(pct: u8, ascii: bool) -> String {
     let full = (usize::from(pct.min(100)) * 8 + 50) / 100;
-    format!("[{}{}]", "#".repeat(full), "-".repeat(8 - full))
+    if ascii {
+        format!("[{}{}]", "#".repeat(full), "-".repeat(8 - full))
+    } else {
+        format!("{}{}", "▮".repeat(full), "▯".repeat(8 - full))
+    }
+}
+
+/// Text the Linux console can show: its fonts cover ASCII and the accented Latin letters
+/// (Latin-1 and Latin Extended-A), so anything else, like emoji, becomes "?".
+pub fn ascii_safe(text: &str, ascii: bool) -> std::borrow::Cow<'_, str> {
+    if !ascii {
+        return std::borrow::Cow::Borrowed(text);
+    }
+    let mut safe = String::new();
+    for c in text.chars() {
+        if c.is_ascii() || ('\u{a0}'..='\u{17f}').contains(&c) {
+            safe.push(c);
+        } else {
+            safe.push('?');
+        }
+    }
+    std::borrow::Cow::Owned(safe)
 }
 
 /// A turning bar, one step every 150 ms.

@@ -29,7 +29,8 @@ pub(super) fn radio_lines<'a>(app: &App, radio: &MyRadio, theme: Theme) -> Vec<L
         Some(b) => field(
             theme,
             "BAT",
-            format!("{} %  {:.2} V", b.pct, f64::from(b.mv) / 1000.0),
+            // The percentage is in the banner already, with its gauge.
+            format!("{:.2} V", f64::from(b.mv) / 1000.0),
             if b.pct < LOW_BATTERY {
                 alert(theme)
             } else {

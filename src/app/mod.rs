@@ -14,6 +14,7 @@ mod update;
 
 use std::collections::{HashMap, HashSet};
 
+use crate::config::FIT_PX;
 use crate::geo::{distance_km, format_distance, Pos};
 use crate::history::{Msg, Record, PUBLIC};
 use crate::map::MapView;
@@ -56,8 +57,13 @@ pub struct App {
     /// Conversation rows hidden below the view; 0 shows the latest messages.
     pub scroll: usize,
     pub view: MapView,
+    /// Size of the map panel in pixels, as last drawn (config::FIT_PX before the first frame).
+    pub map_px: (u32, u32),
     pub notice: Option<String>,
     pub quit: bool,
+    /// The terminal only shows ASCII, accented letters and line drawing (the Linux
+    /// console): no images, no emoji, no symbols.
+    pub ascii: bool,
     /// Once the user zooms, pans or picks a node, the map stops fitting the nodes.
     map_moved: bool,
 }
@@ -89,8 +95,10 @@ impl App {
             input: String::new(),
             scroll: 0,
             view: MapView::default(),
+            map_px: FIT_PX,
             notice: None,
             quit: false,
+            ascii: false,
             map_moved: false,
         };
         for rec in history {

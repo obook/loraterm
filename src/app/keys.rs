@@ -72,14 +72,18 @@ impl App {
         self.scroll = 0;
         let conv = self.current_conv();
         self.unread.remove(&conv);
-        let pos = if conv == MY_RADIO {
-            self.self_pos
-        } else {
-            self.nodes
-                .iter()
-                .find(|n| n.prefix == conv)
-                .and_then(|n| n.pos)
-        };
+        if conv == MY_RADIO {
+            // My radio with its neighbours: centering on it alone could leave them all off-screen.
+            if let Some(view) = self.nearby_view() {
+                self.move_map(|v| *v = view);
+            }
+            return;
+        }
+        let pos = self
+            .nodes
+            .iter()
+            .find(|n| n.prefix == conv)
+            .and_then(|n| n.pos);
         if let Some(pos) = pos {
             self.move_map(|v| v.center_on(pos));
         }

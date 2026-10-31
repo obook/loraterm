@@ -15,6 +15,7 @@ use ratatui_image::protocol::StatefulProtocol;
 use ratatui_image::StatefulImage;
 
 use super::format::coord;
+use super::radar::{draw_radar, radar_px, scale};
 use super::{faint, panel, Theme};
 use crate::app::{App, Focus};
 use crate::map::{MapView, Pos};
@@ -26,6 +27,8 @@ pub struct MapState {
     tiles: Tiles,
     shown: Option<Shown>,
     image: Option<StatefulProtocol>,
+    /// The map's size in pixels at the last drawing.
+    size_px: Option<(u32, u32)>,
 }
 
 #[derive(PartialEq)]
@@ -45,7 +48,13 @@ impl MapState {
             tiles,
             shown: None,
             image: None,
+            size_px: None,
         }
+    }
+
+    /// The map's size in pixels at the last drawing; None before the first one.
+    pub fn size_px(&self) -> Option<(u32, u32)> {
+        self.size_px
     }
 }
 
@@ -64,17 +73,28 @@ pub(super) fn draw_map(frame: &mut Frame, app: &App, area: Rect, map: &mut MapSt
             Look::Night,
         ),
     };
-    let block = panel(theme, app.focus == Focus::Map, &title).title_bottom(
-        Line::styled(" (c) OpenStreetMap contributors ", faint(theme)).right_aligned(),
-    );
+    // No images on the Linux console: a radar of letters, with a scale instead of the tiles' credit.
+    let bottom = if app.ascii {
+        format!(" {} ", scale(app))
+    } else {
+        " (c) OpenStreetMap contributors ".to_string()
+    };
+    let block = panel(theme, app.ascii, app.focus == Focus::Map, &title)
+        .title_bottom(Line::styled(bottom, faint(theme)).right_aligned());
     let inner = block.inner(area);
     frame.render_widget(block, area);
+    if app.ascii {
+        map.size_px = Some(radar_px(inner));
+        draw_radar(frame, app, inner, theme);
+        return;
+    }
 
     let font = map.picker.font_size();
     let (w, h) = (
         u32::from(inner.width) * u32::from(font.width),
         u32::from(inner.height) * u32::from(font.height),
     );
+    map.size_px = Some((w, h));
     let now = chrono::Utc::now().timestamp();
     let mut marks: Vec<(Pos, Mark)> = app
         .nodes

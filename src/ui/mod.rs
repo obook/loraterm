@@ -14,6 +14,7 @@ mod format;
 mod map_panel;
 mod menu;
 mod panels;
+mod radar;
 mod radio_card;
 #[cfg(test)]
 mod tests;
@@ -74,10 +75,16 @@ fn alert(theme: Theme) -> Style {
 }
 
 /// Normal: rounded box, " title ", cyan when focused. Hacker: square box, "[ TITLE ]".
-fn panel(theme: Theme, focused: bool, title: &str) -> Block<'static> {
+/// The Linux console (`ascii`) has no rounded corners: square boxes there.
+fn panel(theme: Theme, ascii: bool, focused: bool, title: &str) -> Block<'static> {
+    let corners = if ascii {
+        BorderType::Plain
+    } else {
+        BorderType::Rounded
+    };
     match theme {
         Theme::Normal => Block::bordered()
-            .border_type(BorderType::Rounded)
+            .border_type(corners)
             .border_style(Style::new().fg(if focused { CYAN } else { Color::DarkGray }))
             .title(format!(" {title} ")),
         Theme::Hacker => Block::bordered()
@@ -110,5 +117,5 @@ pub fn draw(frame: &mut Frame, app: &App, map: &mut MapState, theme: Theme) {
     draw_map(frame, app, map_area, map, theme);
     draw_card(frame, app, card, theme);
     draw_conversation(frame, app, conversation, theme);
-    draw_footer(frame, footer, theme);
+    draw_footer(frame, footer, theme, app.ascii);
 }

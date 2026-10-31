@@ -39,10 +39,14 @@ pub fn run_tui(
             }
         }
         terminal.draw(|frame| match screen {
-            Screen::Menu(theme) => ui::draw_menu(frame, theme),
+            Screen::Menu(theme) => ui::draw_menu(frame, theme, app.ascii),
             Screen::Boot(start) => ui::draw_boot(frame, start.elapsed()),
             Screen::Main(theme) => ui::draw(frame, app, map, theme),
         })?;
+        // The map's real size, for the next fit of the view.
+        if let (Screen::Main(_), Some(px)) = (screen, map.size_px()) {
+            app.set_map_px(px);
+        }
         if !event::poll(Duration::from_millis(100))? {
             continue;
         }

@@ -7,7 +7,7 @@
 //! Licence: MIT
 
 use super::App;
-use crate::config::{FIT_PX, FIT_RADIUS_KM};
+use crate::config::FIT_RADIUS_KM;
 use crate::geo::{distance_km, Pos};
 use crate::history::Record;
 use crate::map::MapView;
@@ -64,19 +64,42 @@ impl App {
         }
         self.selected = self.rows().iter().position(|r| r.conv == keep).unwrap_or(0);
         if !self.map_moved {
-            let near = |p: &Pos| {
-                self.self_pos
-                    .is_none_or(|me| distance_km(me, *p) <= FIT_RADIUS_KM)
-            };
-            let points: Vec<Pos> = self
-                .nodes
-                .iter()
-                .filter_map(|n| n.pos)
-                .filter(near)
-                .chain(self.self_pos)
-                .collect();
-            if !points.is_empty() {
-                self.view = MapView::fit(&points, FIT_PX.0, FIT_PX.1);
+            if let Some(view) = self.nearby_view() {
+                self.view = view;
+            }
+        }
+    }
+
+    /// The view on my radio and the nodes within FIT_RADIUS_KM of it (every located node
+    /// when my position is unknown), fitted to the map's real size; None without positions.
+    pub(super) fn nearby_view(&self) -> Option<MapView> {
+        let near = |pos: &Pos| {
+            self.self_pos
+                .is_none_or(|me| distance_km(me, *pos) <= FIT_RADIUS_KM)
+        };
+        let points: Vec<Pos> = self
+            .nodes
+            .iter()
+            .filter_map(|node| node.pos)
+            .filter(near)
+            .chain(self.self_pos)
+            .collect();
+        if points.is_empty() {
+            return None;
+        }
+        Some(MapView::fit(&points, self.map_px.0, self.map_px.1))
+    }
+
+    /// The map panel's size in pixels, measured by the last drawing: the view is fitted to
+    /// it until the user moves the map.
+    pub fn set_map_px(&mut self, px: (u32, u32)) {
+        if px == self.map_px {
+            return;
+        }
+        self.map_px = px;
+        if !self.map_moved {
+            if let Some(view) = self.nearby_view() {
+                self.view = view;
             }
         }
     }

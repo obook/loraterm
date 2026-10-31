@@ -26,7 +26,7 @@ pub(super) fn draw_header(frame: &mut Frame, app: &App, area: Rect, theme: Theme
         (Theme::Normal, None, Link::Connected(name)) => {
             let battery = app
                 .battery
-                .map(|b| format!(" - battery {} % {}", b.pct, gauge(b.pct)))
+                .map(|b| format!(" - battery {} % {}", b.pct, gauge(b.pct, app.ascii)))
                 .unwrap_or_default();
             let line = format!(
                 "Connected to {name}{battery} - {} contacts",
@@ -52,7 +52,7 @@ pub(super) fn draw_header(frame: &mut Frame, app: &App, area: Rect, theme: Theme
         (Theme::Hacker, None, Link::Connected(name)) => {
             let power = app
                 .battery
-                .map(|b| format!(" :: PWR {} {}%", gauge(b.pct), b.pct))
+                .map(|b| format!(" :: PWR {} {}%", gauge(b.pct, app.ascii), b.pct))
                 .unwrap_or_default();
             Span::styled(
                 format!(
@@ -78,14 +78,22 @@ pub(super) fn draw_header(frame: &mut Frame, app: &App, area: Rect, theme: Theme
         Theme::Normal => Line::from(status),
         Theme::Hacker => Line::from(vec![
             status,
-            Span::styled(" █", text(theme).add_modifier(Modifier::SLOW_BLINK)),
+            Span::styled(
+                if app.ascii { " _" } else { " █" },
+                text(theme).add_modifier(Modifier::SLOW_BLINK),
+            ),
         ]),
     };
     let block = match theme {
-        Theme::Normal => panel(theme, false, "meshcore-m5  MeshCore over Bluetooth"),
+        Theme::Normal => panel(
+            theme,
+            app.ascii,
+            false,
+            "meshcore-m5  MeshCore over Bluetooth",
+        ),
         Theme::Hacker => {
             let clock = chrono::Local::now().format(" %H:%M:%S ").to_string();
-            panel(theme, false, "MESHCORE-M5")
+            panel(theme, app.ascii, false, "MESHCORE-M5")
                 .title(Line::styled(clock, text(theme)).right_aligned())
         }
     };
@@ -93,11 +101,11 @@ pub(super) fn draw_header(frame: &mut Frame, app: &App, area: Rect, theme: Theme
 }
 
 /// The keys line at the bottom.
-pub(super) fn draw_footer(frame: &mut Frame, area: Rect, theme: Theme) {
+pub(super) fn draw_footer(frame: &mut Frame, area: Rect, theme: Theme, ascii: bool) {
     let spans: Vec<Span> = match theme {
         Theme::Normal => {
             let keys = [
-                ("↑↓", "move"),
+                (if ascii { "up/down" } else { "↑↓" }, "move"),
                 ("Tab", "switch"),
                 ("Enter", "send"),
                 ("+/-", "zoom"),

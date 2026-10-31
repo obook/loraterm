@@ -600,3 +600,72 @@ fn link_lost_is_kept() {
     app.apply(FromRadio::Link(Link::Lost("x".into())));
     assert_eq!(app.link, Link::Lost("x".into()));
 }
+
+fn inside(view: MapView, pos: Pos, (w, h): (u32, u32)) -> bool {
+    let (x, y) = view.screen_px(pos, w, h);
+    (0.0..f64::from(w)).contains(&x) && (0.0..f64::from(h)).contains(&y)
+}
+
+#[test]
+fn selecting_my_radio_fits_my_neighbours_in_the_real_map_size() {
+    let mut app = connected();
+    let me = Pos {
+        lat: 44.80,
+        lon: -0.60,
+    };
+    let relay = Pos {
+        lat: 44.80,
+        lon: -0.50,
+    };
+    app.apply(FromRadio::SelfPos(Some(me)));
+    app.apply(FromRadio::Nodes(vec![node(
+        "0a",
+        "Relay",
+        NodeKind::Repeater,
+        Some(relay),
+    )]));
+    app.apply(FromRadio::MyRadio(MyRadio {
+        name: "bbok".into(),
+        ..Default::default()
+    }));
+    app.set_map_px((360, 300));
+    app.focus = Focus::Map;
+    press(&mut app, KeyCode::Char('+'));
+    app.focus = Focus::Contacts;
+    app.selected = 1;
+    press(&mut app, KeyCode::Up);
+    assert_eq!(app.current_conv(), MY_RADIO);
+    assert!(
+        inside(app.view, me, (360, 300)) && inside(app.view, relay, (360, 300)),
+        "{:?}",
+        app.view
+    );
+}
+
+#[test]
+fn a_new_map_size_refits_until_the_user_moves_the_map() {
+    let mut app = App::new("x", vec![]);
+    let a = Pos {
+        lat: 44.80,
+        lon: -0.60,
+    };
+    let b = Pos {
+        lat: 44.90,
+        lon: -0.40,
+    };
+    app.apply(FromRadio::Nodes(vec![
+        node("01", "A", NodeKind::Repeater, Some(a)),
+        node("02", "B", NodeKind::Repeater, Some(b)),
+    ]));
+    app.set_map_px((200, 150));
+    assert!(
+        inside(app.view, a, (200, 150)) && inside(app.view, b, (200, 150)),
+        "{:?}",
+        app.view
+    );
+    app.focus = Focus::Map;
+    press(&mut app, KeyCode::Char('-'));
+    let moved = app.view;
+    app.set_map_px((900, 600));
+    assert_eq!(app.view, moved);
+}

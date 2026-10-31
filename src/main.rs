@@ -39,6 +39,10 @@ struct Cli {
     /// How the map image is shown; "auto" asks the terminal (iTerm2 images in Konsole).
     #[arg(long, value_enum, default_value = "auto")]
     image: ImageMode,
+    /// Linux console look: ASCII symbols and a radar of letters instead of the map image
+    /// (automatic when TERM=linux).
+    #[arg(long)]
+    console: bool,
 }
 
 #[derive(Clone, Copy, clap::ValueEnum)]
@@ -88,6 +92,7 @@ fn main() -> anyhow::Result<()> {
         .clone()
         .unwrap_or_else(|| radio::ANY_RADIO.into());
     let mut app = app::App::new(&label, records);
+    app.ascii = cli.console || is_console(std::env::var("TERM").ok().as_deref());
     let _ = TUI_LOG.set(std::fs::File::create(log_path())?);
     // A channel: the radio task sends its updates (FromRadio), the interface reads them.
     let (tx, rx) = std::sync::mpsc::channel();
@@ -97,10 +102,15 @@ fn main() -> anyhow::Result<()> {
 
     let mut terminal = ratatui::init();
     // Asks the terminal how it shows images (Kitty, Sixel...); half blocks work everywhere.
-    let mut picker = ratatui_image::picker::Picker::from_query_stdio().unwrap_or_else(|e| {
-        tracing::warn!("terminal image query failed: {e}");
+    let mut picker = if app.ascii {
+        // No images on the Linux console: nothing to ask the terminal.
         ratatui_image::picker::Picker::halfblocks()
-    });
+    } else {
+        ratatui_image::picker::Picker::from_query_stdio().unwrap_or_else(|e| {
+            tracing::warn!("terminal image query failed: {e}");
+            ratatui_image::picker::Picker::halfblocks()
+        })
+    };
     use ratatui_image::picker::ProtocolType;
     match cli_image {
         ImageMode::Auto => {
@@ -122,7 +132,13 @@ fn main() -> anyhow::Result<()> {
         picker.protocol_type(),
         picker.font_size()
     );
-    let mut map = ui::MapState::new(picker, tiles::Tiles::new(tiles::Tiles::default_dir()));
+    // The radar of the Linux console needs no tiles: nothing is downloaded there.
+    let tiles = if app.ascii {
+        tiles::Tiles::offline(tiles::Tiles::default_dir())
+    } else {
+        tiles::Tiles::new(tiles::Tiles::default_dir())
+    };
+    let mut map = ui::MapState::new(picker, tiles);
     let result = tui::run_tui(&mut terminal, &mut app, &mut map, &rx, &cmds);
     ratatui::restore();
 
@@ -155,6 +171,11 @@ fn log_path() -> std::path::PathBuf {
     runtime_dir().join("meshcore-m5.log")
 }
 
+/// The Linux console, a terminal without a desktop: TERM is "linux" there.
+fn is_console(term: Option<&str>) -> bool {
+    term == Some("linux")
+}
+
 fn runtime_dir() -> std::path::PathBuf {
     std::env::var_os("XDG_RUNTIME_DIR").map_or_else(std::env::temp_dir, Into::into)
 }
@@ -171,6 +192,13 @@ fn single_instance(path: &std::path::Path) -> anyhow::Result<std::fs::File> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_linux_console_is_detected_from_term() {
+        assert!(super::is_console(Some("linux")));
+        assert!(!super::is_console(Some("xterm-256color")));
+        assert!(!super::is_console(None));
+    }
+
     #[test]
     fn only_one_instance_at_a_time() {
         let dir = tempfile::tempdir().unwrap();

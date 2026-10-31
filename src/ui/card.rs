@@ -10,7 +10,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
-use super::format::{age, coord, hhmm, kind_name, route, spinner, uptime};
+use super::format::{age, ascii_safe, coord, hhmm, kind_name, route, spinner, uptime};
 use super::radio_card::radio_lines;
 use super::{alert, faint, panel, strong, text, Theme};
 use crate::app::{App, Ping, MY_RADIO};
@@ -143,13 +143,13 @@ pub(super) fn draw_card(frame: &mut Frame, app: &App, area: Rect, theme: Theme) 
     let conv = app.current_conv();
     if let (MY_RADIO, Some(radio)) = (conv.as_str(), &app.me) {
         let title = match theme {
-            Theme::Normal => format!("My radio: {}", radio.name),
-            Theme::Hacker => format!("RADIO :: {}", radio.name),
+            Theme::Normal => format!("My radio: {}", ascii_safe(&radio.name, app.ascii)),
+            Theme::Hacker => format!("RADIO :: {}", ascii_safe(&radio.name, app.ascii)),
         };
         frame.render_widget(
             Paragraph::new(radio_lines(app, radio, theme))
                 .style(text(theme))
-                .block(panel(theme, false, &title)),
+                .block(panel(theme, app.ascii, false, &title)),
             area,
         );
         return;
@@ -170,7 +170,10 @@ pub(super) fn draw_card(frame: &mut Frame, app: &App, area: Rect, theme: Theme) 
         ];
         (title.to_string(), lines)
     } else if let Some(node) = app.nodes.iter().find(|n| n.prefix == conv) {
-        (node_title(&node.name), node_lines(app, node, theme))
+        (
+            node_title(&ascii_safe(&node.name, app.ascii)),
+            node_lines(app, node, theme),
+        )
     } else {
         let lines = vec![
             field(theme, "ID", conv.clone(), text(theme)),
@@ -182,7 +185,7 @@ pub(super) fn draw_card(frame: &mut Frame, app: &App, area: Rect, theme: Theme) 
     frame.render_widget(
         Paragraph::new(lines)
             .style(text(theme))
-            .block(panel(theme, false, &title)),
+            .block(panel(theme, app.ascii, false, &title)),
         area,
     );
 }
