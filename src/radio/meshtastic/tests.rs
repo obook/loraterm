@@ -426,3 +426,19 @@ fn my_node_info_with_a_position_moves_me_too() {
         .try_iter()
         .any(|m| matches!(m, FromRadio::SelfPos(Some(_)))));
 }
+
+#[test]
+fn the_handshake_keeps_the_gps_mode() {
+    use meshtastic::protobufs::config::position_config::GpsMode;
+    let mut snap = Snapshot::default();
+    let position = pb::Config {
+        payload_variant: Some(pb::config::PayloadVariant::Position(
+            pb::config::PositionConfig {
+                gps_mode: GpsMode::Disabled as i32,
+                ..Default::default()
+            },
+        )),
+    };
+    absorb(&mut snap, incoming(Incoming::Config(position)), 42);
+    assert_eq!(snap.gps, Some(GpsMode::Disabled));
+}

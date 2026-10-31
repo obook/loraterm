@@ -38,6 +38,8 @@ pub(in crate::radio) struct Snapshot {
     pub nodes: HashMap<u32, pb::NodeInfo>,
     pub lora: Option<config::LoRaConfig>,
     pub meta: Option<pb::DeviceMetadata>,
+    /// Whether the radio uses its GPS.
+    pub gps: Option<config::position_config::GpsMode>,
     /// Packets queued in the radio: handled once the session starts, never dropped.
     pub pending: Vec<pb::MeshPacket>,
 }
@@ -52,6 +54,9 @@ pub(in crate::radio) fn absorb(snap: &mut Snapshot, msg: pb::FromRadio, config_i
         Some(from_radio::PayloadVariant::Config(pb::Config {
             payload_variant: Some(config::PayloadVariant::Lora(lora)),
         })) => snap.lora = Some(lora),
+        Some(from_radio::PayloadVariant::Config(pb::Config {
+            payload_variant: Some(config::PayloadVariant::Position(position)),
+        })) => snap.gps = config::position_config::GpsMode::try_from(position.gps_mode).ok(),
         Some(from_radio::PayloadVariant::Metadata(meta)) => snap.meta = Some(meta),
         Some(from_radio::PayloadVariant::Packet(p)) => snap.pending.push(p),
         Some(from_radio::PayloadVariant::ConfigCompleteId(id)) => return id == config_id,
@@ -569,6 +574,8 @@ pub(crate) async fn probe(name: &str) -> anyhow::Result<()> {
         Some(p) => println!("pos      {:.6}, {:.6}", p.lat, p.lon),
         None => println!("pos      none"),
     }
+    let gps = snap.gps.map_or("?", |g| g.as_str_name());
+    println!("gps      {gps}");
     println!("nodes    {}", snap.nodes.len().saturating_sub(1));
     Ok(())
 }
