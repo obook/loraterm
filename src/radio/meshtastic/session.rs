@@ -28,6 +28,9 @@ use crate::radio::link::now;
 use crate::radio::session::{announce, save};
 use crate::radio::{Firmware, FromRadio, HistoryWriteFailed, Ping, ToRadio};
 
+/// Direct messages remembered while waiting for an ack.
+const MAX_UNACKED: usize = 1000;
+
 /// Destination of a channel message.
 const BROADCAST: u32 = 0xffff_ffff;
 
@@ -385,6 +388,11 @@ impl Live {
                     self.hop_limit,
                 ))
                 .await?;
+                // shortcut: a DM never acked stays here; past 1000 the whole map is
+                // cleared. Upgrade to a timestamp if a late ack ever matters.
+                if self.sent.len() >= MAX_UNACKED {
+                    self.sent.clear();
+                }
                 self.sent.insert(id, to);
                 save(history, tx, outgoing(prefix, text, Some(ack_tag(id))))
             }
