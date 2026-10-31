@@ -95,6 +95,10 @@ impl App {
             return None;
         }
         let conv = self.current_conv();
+        if self.is_mine(&conv) {
+            self.notice = Some("That is your own radio".into());
+            return None;
+        }
         // MeshCore asks repeaters and rooms for their status; Meshtastic traces the route to
         // any node.
         let meshtastic = self.firmware == Firmware::Meshtastic;
@@ -114,6 +118,11 @@ impl App {
         Some(cmd)
     }
 
+    /// My own radio, by its row or by its id (an old conversation can carry it).
+    fn is_mine(&self, conv: &str) -> bool {
+        conv == MY_RADIO || self.me.as_ref().is_some_and(|me| me.prefix == conv)
+    }
+
     fn send(&mut self) -> Option<ToRadio> {
         if self.input.is_empty() {
             return None;
@@ -123,7 +132,7 @@ impl App {
             return None;
         }
         let conv = self.current_conv();
-        if conv == MY_RADIO {
+        if self.is_mine(&conv) {
             self.notice = Some("That is your own radio".into());
             return None;
         }

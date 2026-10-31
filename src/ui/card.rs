@@ -142,7 +142,11 @@ pub(super) fn node_lines<'a>(app: &App, node: &Node, theme: Theme) -> Vec<Line<'
             lines.push(field(
                 theme,
                 "TRACE",
-                format!("{rtt:.1} s  {hops} HOPS"),
+                if *hops == 0 {
+                    format!("{rtt:.1} s  DIRECT")
+                } else {
+                    format!("{rtt:.1} s  {hops} HOPS")
+                },
                 strong(theme),
             ));
             if let Some(snr) = snr {

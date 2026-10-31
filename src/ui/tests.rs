@@ -669,6 +669,16 @@ fn cards_show_meshtastic_results() {
     for want in ["TRACE", "1.5 s  2 HOPS", "SNR", "4.5 dB"] {
         assert!(s.contains(want), "{want} missing in\n{s}");
     }
+    app.apply(FromRadio::Pong {
+        prefix: "5545fc8a91d2".into(),
+        ping: crate::app::Ping::Trace {
+            rtt_ms: 900,
+            hops: 0,
+            snr: None,
+        },
+    });
+    let s = screen(&app);
+    assert!(s.contains("0.9 s  DIRECT") && !s.contains("0 HOPS"), "{s}");
     let mut radio = radio_app();
     let me = MyRadio {
         preset: Some("EU_868 LONG_FAST".into()),
