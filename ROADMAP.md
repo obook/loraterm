@@ -53,8 +53,8 @@ from what the radio advertises over Bluetooth. Design:
 - [x] Try it on the M5 flashed with Meshtastic: `--probe`, connection,
   header and battery
 - [ ] Message exchange and traceroute with another Meshtastic node
-- [ ] MeshCore check after the switch back (backup restored; re-pair with
-  `scripts/pair-radio.py`, then probe)
+- [x] MeshCore check after the switch back: backup restored, re-paired with
+  `scripts/pair-radio.py`, `--probe` and the interface connect (21 contacts)
 - [x] New name for the project: loraterm; the history and tile cache move
   to the new data paths on the first start
 
