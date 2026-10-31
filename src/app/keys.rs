@@ -10,9 +10,8 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::{kind_label, App, Focus, Ping, MY_RADIO};
 use crate::config::{MAX_TEXT_BYTES, SCROLL_STEP};
-use crate::history::PUBLIC;
 use crate::map::MapView;
-use crate::radio::{Link, NodeKind, ToRadio};
+use crate::radio::{Firmware, Link, NodeKind, ToRadio};
 
 impl App {
     /// Handle one key press; returns the radio command it asks for, if any.
@@ -96,10 +95,13 @@ impl App {
             return None;
         }
         let conv = self.current_conv();
+        // MeshCore asks repeaters and rooms for their status; Meshtastic traces the route to
+        // any node.
+        let meshtastic = self.firmware == Firmware::Meshtastic;
         let Some(node) = self
             .nodes
             .iter()
-            .find(|n| n.prefix == conv && n.kind != NodeKind::Chat)
+            .find(|n| n.prefix == conv && (meshtastic || n.kind != NodeKind::Chat))
         else {
             self.notice = Some("PING: repeaters and rooms only".into());
             return None;
@@ -125,15 +127,14 @@ impl App {
             self.notice = Some("That is your own radio".into());
             return None;
         }
-        if conv.starts_with("channel:") {
+        if conv.contains("channel:") {
             self.notice = Some("Messages to private channels are not supported".into());
             return None;
         }
-        if let Some(n) = self
-            .nodes
-            .iter()
-            .find(|n| n.prefix == conv && n.kind != NodeKind::Chat)
-        {
+        // Meshtastic routers take direct messages; MeshCore repeaters and rooms do not.
+        if let Some(n) = self.nodes.iter().find(|n| {
+            n.prefix == conv && n.kind != NodeKind::Chat && self.firmware == Firmware::MeshCore
+        }) {
             self.notice = Some(format!(
                 "Messages to a {} are not supported",
                 kind_label(n.kind)
@@ -142,7 +143,7 @@ impl App {
         }
         let text = std::mem::take(&mut self.input);
         self.scroll = 0;
-        Some(if conv == PUBLIC {
+        Some(if conv == self.public_conv() {
             ToRadio::SendPublic { text }
         } else {
             ToRadio::SendDirect { prefix: conv, text }

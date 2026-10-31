@@ -58,6 +58,8 @@ pub struct MyRadio {
 }
 
 pub enum FromRadio {
+    /// What the connected radio runs; sent before `Link::Connected`.
+    Firmware(Firmware),
     Link(Link),
     SelfPos(Option<Pos>),
     Battery(Battery),

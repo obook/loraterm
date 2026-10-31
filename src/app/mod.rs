@@ -16,10 +16,10 @@ use std::collections::{HashMap, HashSet};
 
 use crate::config::FIT_PX;
 use crate::geo::{distance_km, format_distance, Pos};
-use crate::history::{Msg, Record, PUBLIC};
+use crate::history::{is_meshtastic, Msg, Record, MT_PUBLIC, PUBLIC};
 use crate::map::MapView;
 pub use crate::radio::Ping;
-use crate::radio::{Battery, Link, MyRadio, Node, NodeKind};
+use crate::radio::{Battery, Firmware, Link, MyRadio, Node, NodeKind};
 
 /// Conversation key of the row for my own radio.
 pub const MY_RADIO: &str = "radio";
@@ -40,6 +40,8 @@ pub struct Row {
 
 pub struct App {
     pub link: Link,
+    /// What the radio runs; before a radio is found, what the history's last record says.
+    pub firmware: Firmware,
     pub self_pos: Option<Pos>,
     pub battery: Option<Battery>,
     pub me: Option<MyRadio>,
@@ -81,6 +83,7 @@ impl App {
     pub fn new(device: &str, history: Vec<Record>) -> App {
         let mut app = App {
             link: Link::Searching(device.into()),
+            firmware: Firmware::MeshCore,
             self_pos: None,
             battery: None,
             me: None,
@@ -101,6 +104,13 @@ impl App {
             ascii: false,
             map_moved: false,
         };
+        let last_key = history.last().map(|rec| match rec {
+            Record::Msg(m) => m.conv.as_str(),
+            Record::Ack { tag } => tag.as_str(),
+        });
+        if last_key.is_some_and(is_meshtastic) {
+            app.firmware = Firmware::Meshtastic;
+        }
         for rec in history {
             match rec {
                 Record::Msg(m) => app.msgs.push(m),
@@ -112,7 +122,16 @@ impl App {
         app
     }
 
-    /// Public channel, then nodes by name, then conversations with no known node.
+    /// Conversation key of the public channel of the current firmware.
+    pub fn public_conv(&self) -> &'static str {
+        match self.firmware {
+            Firmware::MeshCore => PUBLIC,
+            Firmware::Meshtastic => MT_PUBLIC,
+        }
+    }
+
+    /// Public channel, then nodes by name, then the current firmware's conversations with no
+    /// known node.
     pub fn rows(&self) -> Vec<Row> {
         let unread = |conv: &str| self.unread.get(conv).copied().unwrap_or(0);
         let mut rows: Vec<Row> = self
@@ -126,10 +145,10 @@ impl App {
             })
             .collect();
         rows.push(Row {
-            conv: PUBLIC.into(),
+            conv: self.public_conv().into(),
             label: "# Public".into(),
             detail: String::new(),
-            unread: unread(PUBLIC),
+            unread: unread(self.public_conv()),
         });
         let mut nodes: Vec<&Node> = self.nodes.iter().collect();
         nodes.sort_by_key(|n| n.name.to_lowercase());
@@ -148,8 +167,9 @@ impl App {
         }
         // A set, not a scan of the rows: the history grows for months.
         let mut listed: HashSet<String> = rows.iter().map(|r| r.conv.clone()).collect();
+        let meshtastic = self.firmware == Firmware::Meshtastic;
         for m in &self.msgs {
-            if !listed.contains(&m.conv) {
+            if is_meshtastic(&m.conv) == meshtastic && !listed.contains(&m.conv) {
                 listed.insert(m.conv.clone());
                 rows.push(Row {
                     conv: m.conv.clone(),
@@ -166,7 +186,7 @@ impl App {
         self.rows()
             .into_iter()
             .nth(self.selected)
-            .map_or_else(|| PUBLIC.into(), |r| r.conv)
+            .map_or_else(|| self.public_conv().into(), |r| r.conv)
     }
 
     pub fn thread(&self) -> Vec<&Msg> {

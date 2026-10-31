@@ -19,7 +19,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use super::convert::{channel_msg, contact_msg, lipo_percent, my_radio};
 use super::link::now;
 use super::ping::ping;
-use super::{Battery, FromRadio, HistoryWriteFailed, Link, Node, ToRadio};
+use super::{Battery, Firmware, FromRadio, HistoryWriteFailed, Link, Node, ToRadio};
 use crate::config::{CHECK_EVERY, CONTACTS_TIMEOUT};
 use crate::geo::pos_from_micro;
 use crate::history::{self, Msg, Record, PUBLIC};
@@ -41,6 +41,7 @@ pub(super) async fn session(
         tracing::info!("device query: {e}");
     }
     let _ = tx.send(FromRadio::MyRadio(my_radio(&me, dev.as_ref().ok())));
+    let _ = tx.send(FromRadio::Firmware(Firmware::MeshCore));
     let _ = tx.send(FromRadio::Link(Link::Connected(name.to_string())));
     // The firmware refuses to move its clock back (it answers an error, which meshcore-rs only
     // sees as a timeout); a GPS radio is often a second ahead. A clock not set is no link failure.

@@ -13,7 +13,6 @@ use ratatui::Frame;
 use super::format::{ascii_safe, cells, node_id, short};
 use super::{panel, strong, Theme, BLACK, GREEN};
 use crate::app::{App, Focus, MY_RADIO};
-use crate::history::PUBLIC;
 
 /// The list on the left: my radio, the public channel, then the contacts.
 pub(super) fn draw_contacts(frame: &mut Frame, app: &App, area: Rect, theme: Theme) {
@@ -29,7 +28,7 @@ pub(super) fn draw_contacts(frame: &mut Frame, app: &App, area: Rect, theme: The
                         String::new()
                     };
                     let label = match r.conv.as_str() {
-                        PUBLIC => "# Public".to_string(),
+                        conv if conv == app.public_conv() => "# Public".to_string(),
                         MY_RADIO => format!("{} {}", if app.ascii { "*" } else { "◆" }, r.label),
                         _ => r.label.clone(),
                     };
@@ -45,7 +44,7 @@ pub(super) fn draw_contacts(frame: &mut Frame, app: &App, area: Rect, theme: The
                     } else {
                         String::new()
                     };
-                    if r.conv == PUBLIC {
+                    if r.conv == app.public_conv() {
                         format!("#PUBLIC{:>21}", unread)
                     } else if r.conv == MY_RADIO {
                         let id = app

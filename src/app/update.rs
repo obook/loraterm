@@ -19,6 +19,17 @@ impl App {
         let conv = self.current_conv();
         let mut keep = conv.clone();
         match update {
+            FromRadio::Firmware(firmware) => {
+                if firmware != self.firmware {
+                    // The radio was reflashed: what we knew of it belongs to the other firmware.
+                    self.firmware = firmware;
+                    self.nodes.clear();
+                    self.battery = None;
+                    self.me = None;
+                    self.pings.clear();
+                    keep = self.public_conv().into();
+                }
+            }
             FromRadio::Link(link) => {
                 self.connected_since = match link {
                     Link::Connected(_) => self.connected_since.or(Some(std::time::Instant::now())),

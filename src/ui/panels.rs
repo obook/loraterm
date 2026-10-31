@@ -29,7 +29,8 @@ pub(super) fn draw_header(frame: &mut Frame, app: &App, area: Rect, theme: Theme
                 .map(|b| format!(" - battery {} % {}", b.pct, gauge(b.pct, app.ascii)))
                 .unwrap_or_default();
             let line = format!(
-                "Connected to {name}{battery} - {} contacts",
+                "Connected to {name} ({}){battery} - {} contacts",
+                app.firmware.name(),
                 app.nodes.len()
             );
             Span::styled(
@@ -56,7 +57,8 @@ pub(super) fn draw_header(frame: &mut Frame, app: &App, area: Rect, theme: Theme
                 .unwrap_or_default();
             Span::styled(
                 format!(
-                    ">> LINK ESTABLISHED :: {name}{power} :: {} NODES",
+                    ">> LINK ESTABLISHED :: {name} :: {}{power} :: {} NODES",
+                    app.firmware.name().to_uppercase(),
                     app.nodes.len()
                 ),
                 if low { alert(theme) } else { strong(theme) },

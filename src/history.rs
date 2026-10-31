@@ -14,6 +14,13 @@ use serde::{Deserialize, Serialize};
 
 /// Conversation key of the public channel; other conversations use the contact's prefix in hex.
 pub const PUBLIC: &str = "public";
+/// Every Meshtastic key starts with "mt:", so the two firmwares' histories stay apart.
+pub const MT_PUBLIC: &str = "mt:public";
+
+/// A conversation key or ack tag of the Meshtastic firmware.
+pub fn is_meshtastic(key: &str) -> bool {
+    key.starts_with("mt:")
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Msg {

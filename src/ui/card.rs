@@ -15,8 +15,8 @@ use super::radio_card::radio_lines;
 use super::{alert, faint, panel, strong, text, Theme};
 use crate::app::{App, Ping, MY_RADIO};
 use crate::geo::{bearing_deg, cardinal, distance_km, format_distance};
-use crate::history::{Msg, PUBLIC};
-use crate::radio::{Node, NodeKind};
+use crate::history::Msg;
+use crate::radio::{Firmware, Node, NodeKind};
 
 /// "LABEL  value" row of the node card.
 pub(super) fn field<'a>(theme: Theme, label: &'a str, value: String, style: Style) -> Line<'a> {
@@ -97,7 +97,10 @@ pub(super) fn node_lines<'a>(app: &App, node: &Node, theme: Theme) -> Vec<Line<'
             acked.map_or("-".into(), |m| format!("LAST {}", hhmm(m.ts))),
             text(theme),
         ));
-        return lines;
+        // Meshtastic can trace the route to any node.
+        if app.firmware == Firmware::MeshCore {
+            return lines;
+        }
     }
     lines.push(Line::styled("-- PING ------------------", faint(theme)));
     match app.pings.get(&node.prefix) {
@@ -158,7 +161,7 @@ pub(super) fn draw_card(frame: &mut Frame, app: &App, area: Rect, theme: Theme) 
         Theme::Normal => format!("Node: {name}"),
         Theme::Hacker => format!("NODE :: {name}"),
     };
-    let (title, lines) = if conv == PUBLIC {
+    let (title, lines) = if conv == app.public_conv() {
         let title = if theme == Theme::Normal {
             "Public channel"
         } else {
@@ -166,7 +169,7 @@ pub(super) fn draw_card(frame: &mut Frame, app: &App, area: Rect, theme: Theme) 
         };
         let lines = vec![
             field(theme, "NODES", app.nodes.len().to_string(), text(theme)),
-            field(theme, "MSGS", msgs_summary(app, PUBLIC), text(theme)),
+            field(theme, "MSGS", msgs_summary(app, app.public_conv()), text(theme)),
         ];
         (title.to_string(), lines)
     } else if let Some(node) = app.nodes.iter().find(|n| n.prefix == conv) {

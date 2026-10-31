@@ -8,7 +8,8 @@
 use super::*;
 use crate::config::{MAX_TEXT_BYTES, SCROLL_STEP};
 use crate::map::FOCUS_ZOOM;
-use crate::radio::{FromRadio, ToRadio};
+use crate::history::MT_PUBLIC;
+use crate::radio::{Firmware, FromRadio, ToRadio};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 const ALICE: &str = "a4cb8fcbd941";
@@ -668,4 +669,101 @@ fn a_new_map_size_refits_until_the_user_moves_the_map() {
     let moved = app.view;
     app.set_map_px((900, 600));
     assert_eq!(app.view, moved);
+}
+
+fn convs(app: &App) -> Vec<String> {
+    app.rows().into_iter().map(|r| r.conv).collect()
+}
+
+#[test]
+fn firmware_comes_from_the_last_history_record() {
+    let mt = App::new("x", vec![incoming(PUBLIC, "a"), incoming(MT_PUBLIC, "b")]);
+    assert_eq!(mt.firmware, Firmware::Meshtastic);
+    let mc = App::new("x", vec![incoming(MT_PUBLIC, "b"), incoming("a1b2c3d4e5f6", "a")]);
+    assert_eq!(mc.firmware, Firmware::MeshCore);
+    assert_eq!(App::new("x", vec![]).firmware, Firmware::MeshCore);
+}
+
+#[test]
+fn rows_show_only_the_current_firmware() {
+    let mut app = App::new(
+        "x",
+        vec![
+            incoming(PUBLIC, "a"),
+            incoming(MT_PUBLIC, "c"),
+            incoming("mt:!0badcafe", "d"),
+            incoming("a1b2c3d4e5f6", "b"),
+        ],
+    );
+    assert_eq!(convs(&app), [PUBLIC, "a1b2c3d4e5f6"]);
+    app.apply(FromRadio::Firmware(Firmware::Meshtastic));
+    assert_eq!(convs(&app), [MT_PUBLIC, "mt:!0badcafe"]);
+    assert_eq!(labels(&app)[0], "# Public");
+}
+
+#[test]
+fn switching_firmware_clears_the_radio_state() {
+    let mut app = connected();
+    app.apply(FromRadio::Battery(Battery {
+        pct: 50,
+        mv: 3840,
+        used_kb: None,
+        total_kb: None,
+    }));
+    app.apply(FromRadio::MyRadio(MyRadio::default()));
+    app.apply(FromRadio::Firmware(Firmware::MeshCore));
+    assert_eq!(app.nodes.len(), 2, "same firmware: nothing changes");
+    app.apply(FromRadio::Firmware(Firmware::Meshtastic));
+    assert!(app.nodes.is_empty());
+    assert!(app.battery.is_none() && app.me.is_none());
+}
+
+#[test]
+fn enter_on_the_meshtastic_public_row_sends_public() {
+    let mut app = connected();
+    app.apply(FromRadio::Firmware(Firmware::Meshtastic));
+    type_text(&mut app, "hi");
+    assert_eq!(
+        press(&mut app, KeyCode::Enter),
+        Some(ToRadio::SendPublic { text: "hi".into() })
+    );
+}
+
+/// Meshtastic, connected, with Bob (a person) and a router.
+fn meshtastic() -> App {
+    let mut app = connected();
+    app.apply(FromRadio::Firmware(Firmware::Meshtastic));
+    app.apply(FromRadio::Nodes(vec![
+        node("mt:!0badcafe", "Bob", NodeKind::Chat, None),
+        node("mt:!0000beef", "Roof", NodeKind::Repeater, None),
+    ]));
+    app
+}
+
+#[test]
+fn meshtastic_pings_any_node() {
+    let mut app = meshtastic();
+    app.focus = Focus::Map;
+    app.selected = 1;
+    assert_eq!(
+        press(&mut app, KeyCode::Char('p')),
+        Some(ToRadio::Ping {
+            key: "mt:!0badcafe-key".into(),
+            prefix: "mt:!0badcafe".into()
+        })
+    );
+}
+
+#[test]
+fn meshtastic_sends_to_a_router() {
+    let mut app = meshtastic();
+    app.selected = 2;
+    type_text(&mut app, "hi");
+    assert_eq!(
+        press(&mut app, KeyCode::Enter),
+        Some(ToRadio::SendDirect {
+            prefix: "mt:!0000beef".into(),
+            text: "hi".into()
+        })
+    );
 }

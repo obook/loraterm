@@ -9,7 +9,7 @@ use super::format::*;
 use super::menu::*;
 use super::*;
 use crate::history::{Msg, Record};
-use crate::radio::{Battery, FromRadio, Link, MyRadio, Node, NodeKind};
+use crate::radio::{Battery, Firmware, FromRadio, Link, MyRadio, Node, NodeKind};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 fn render(draw_fn: impl FnOnce(&mut Frame)) -> String {
@@ -89,7 +89,7 @@ fn banner_shows_connected() {
     }));
     app.apply(FromRadio::Nodes(nodes(12)));
     assert!(screen(&app)
-        .contains(">> LINK ESTABLISHED :: MeshCore-bbok :: PWR ▮▮▮▮▮▮▮▯ 87% :: 12 NODES"));
+        .contains(">> LINK ESTABLISHED :: MeshCore-bbok :: MESHCORE :: PWR ▮▮▮▮▮▮▮▯ 87% :: 12 NODES"));
 }
 
 #[test]
@@ -379,7 +379,7 @@ fn normal_banner_is_plain_english() {
     app.apply(FromRadio::Nodes(nodes(12)));
     let s = normal(&app);
     assert!(
-        s.contains("Connected to MeshCore-bbok - battery 87 % ▮▮▮▮▮▮▮▯ - 12 contacts")
+        s.contains("Connected to MeshCore-bbok (MeshCore) - battery 87 % ▮▮▮▮▮▮▮▯ - 12 contacts")
             && !s.contains(">>"),
         "{s}"
     );
@@ -640,4 +640,15 @@ fn the_map_panel_reports_its_size_in_pixels() {
         .unwrap();
     let (w, h) = map.size_px().unwrap();
     assert!(w > 0 && h > 0, "{w} x {h}");
+}
+
+#[test]
+fn header_names_the_firmware() {
+    let mut app = App::new("x", vec![]);
+    app.apply(FromRadio::Firmware(Firmware::Meshtastic));
+    app.apply(FromRadio::Link(Link::Connected("Meshtastic_d940".into())));
+    let normal = screen_with(&app, Theme::Normal);
+    assert!(normal.contains("Connected to Meshtastic_d940 (Meshtastic)"), "{normal}");
+    let hacker = screen(&app);
+    assert!(hacker.contains(">> LINK ESTABLISHED :: Meshtastic_d940 :: MESHTASTIC"), "{hacker}");
 }

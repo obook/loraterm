@@ -14,7 +14,7 @@ use ratatui::Frame;
 use super::format::{ascii_safe, hhmm};
 use super::{faint, panel, strong, text, Theme, CYAN};
 use crate::app::{App, Focus};
-use crate::history::{Msg, PUBLIC};
+use crate::history::Msg;
 use crate::radio::Link;
 
 /// My handle in the thread: the node name inside the BLE name "MeshCore-<name>".
@@ -89,7 +89,7 @@ pub(super) fn draw_conversation(frame: &mut Frame, app: &App, area: Rect, theme:
         "#PUBLIC"
     };
     let label = rows.get(app.selected).map_or(String::new(), |r| {
-        if r.conv == PUBLIC {
+        if r.conv == app.public_conv() {
             public.into()
         } else {
             ascii_safe(&r.label, app.ascii).into_owned()
