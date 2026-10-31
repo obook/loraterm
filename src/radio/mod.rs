@@ -9,6 +9,7 @@
 //! Licence: GPL-3.0
 
 mod convert;
+mod meshtastic;
 mod link;
 mod ping;
 mod session;

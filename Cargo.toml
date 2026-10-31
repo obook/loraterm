@@ -17,6 +17,9 @@ futures = "0.3"
 # Map tiles: PNG decoding and composing.
 image = { version = "0.25", default-features = false, features = ["png"] }
 meshcore-rs = { version = "0.2.0", default-features = false, features = ["ble"] }
+# Meshtastic protobuf types only: our own Bluetooth code uses the shared manager.
+meshtastic = { version = "0.1.9", default-features = false }
+prost = "0.14"
 # line_count: keep the conversation anchored at its last wrapped row.
 ratatui = { version = "0.30", features = ["unstable-rendered-line-info"] }
 # The map as an image in the terminal (Kitty, Sixel, or half blocks).
