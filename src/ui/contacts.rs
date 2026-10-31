@@ -13,6 +13,15 @@ use ratatui::Frame;
 use super::format::{ascii_safe, cells, node_id, short};
 use super::{panel, strong, Theme, BLACK, GREEN};
 use crate::app::{App, Focus, MY_RADIO};
+use crate::config::FRESH_SECS;
+
+/// Whether the contact `conv` was heard in the last FRESH_SECS (a 0 stamp means never).
+fn is_fresh(app: &App, conv: &str) -> bool {
+    let now = chrono::Utc::now().timestamp();
+    app.nodes
+        .iter()
+        .any(|n| n.prefix == conv && n.heard != 0 && now - i64::from(n.heard) < FRESH_SECS)
+}
 
 /// The list on the left: my radio, the public channel, then the contacts.
 pub(super) fn draw_contacts(frame: &mut Frame, app: &App, area: Rect, theme: Theme) {
@@ -30,7 +39,10 @@ pub(super) fn draw_contacts(frame: &mut Frame, app: &App, area: Rect, theme: The
                     let label = match r.conv.as_str() {
                         conv if conv == app.public_conv() => "# Public".to_string(),
                         MY_RADIO => format!("{} {}", if app.ascii { "*" } else { "◆" }, r.label),
-                        _ => r.label.clone(),
+                        conv if is_fresh(app, conv) => {
+                            format!("{} {}", if app.ascii { "*" } else { "●" }, r.label)
+                        }
+                        _ => format!("  {}", r.label),
                     };
                     format!(
                         "{} {:>9} {unread:>3}",
@@ -57,8 +69,9 @@ pub(super) fn draw_contacts(frame: &mut Frame, app: &App, area: Rect, theme: The
                             "LOCAL"
                         )
                     } else {
+                        let mark = if is_fresh(app, &r.conv) { '+' } else { ' ' };
                         format!(
-                            "{:<6} {} {:>6}{unread:>3}",
+                            "{:<6}{mark}{} {:>6}{unread:>3}",
                             node_id(&r.conv),
                             cells(&ascii_safe(&r.label, app.ascii), 10),
                             short(&r.detail)

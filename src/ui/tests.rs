@@ -679,3 +679,23 @@ fn cards_show_meshtastic_results() {
     let s = screen(&radio);
     assert!(s.contains("EU_868 LONG_FAST") && !s.contains("MHz"), "{s}");
 }
+
+#[test]
+fn recent_contacts_are_marked_in_the_list() {
+    let now = chrono::Utc::now().timestamp();
+    let node = |name: &str, ago: i64| Node {
+        prefix: format!("{:012x}", name.len()),
+        name: name.into(),
+        heard: if ago < 0 { 0 } else { (now - ago) as u32 },
+        ..Default::default()
+    };
+    let mut app = App::new("x", vec![]);
+    // Different name lengths give different prefixes.
+    app.apply(FromRadio::Nodes(vec![node("aa", 60), node("bbb", 7200), node("cccc", -1)]));
+    let s = normal(&app);
+    let line = |name: &str| s.lines().find(|l| l.contains(name)).unwrap().to_string();
+    assert!(line("aa").contains("● aa"), "{s}");
+    assert!(!line("bbb").contains('●'), "{s}");
+    assert!(!line("cccc").contains('●'), "{s}");
+    assert!(screen(&app).lines().any(|l| l.contains("+aa")), "{s}");
+}
