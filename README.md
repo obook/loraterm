@@ -36,7 +36,7 @@ bluetoothctl
 agent KeyboardOnly
 default-agent
 scan on
-pair A4:CB:8F:CB:D9:41
+pair AA:BB:CC:DD:EE:FF
 ```
 
 Put your radio's address in the last line, then type the PIN shown on the

@@ -288,14 +288,14 @@ fn a_stale_bluetooth_cache_is_reported_when_nothing_else_connects() {
 #[test]
 fn device_matches_a_name_or_an_address_in_any_case() {
     use super::link::is_device;
-    let addr = "A4:CB:8F:CB:D9:41";
+    let addr = "AA:BB:CC:DD:EE:FF";
     assert!(is_device(None, Some("MeshCore-bbok"), addr));
     assert!(is_device(
         Some("meshcore-BBOK"),
         Some("MeshCore-bbok"),
         addr
     ));
-    assert!(is_device(Some("a4:cb:8f:cb:d9:41"), None, addr));
+    assert!(is_device(Some("aa:bb:cc:dd:ee:ff"), None, addr));
     assert!(!is_device(
         Some("MeshCore-other"),
         Some("MeshCore-bbok"),
