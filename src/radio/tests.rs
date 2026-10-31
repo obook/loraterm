@@ -238,3 +238,28 @@ fn node_kind_and_missing_position() {
         })
     );
 }
+
+#[test]
+fn classify_tells_the_firmwares_apart() {
+    use super::link::{classify, MESHCORE_SERVICE, MESHTASTIC_SERVICE};
+    assert_eq!(
+        classify(Some("Meshtastic_d940"), &[MESHTASTIC_SERVICE]),
+        Some(Firmware::Meshtastic)
+    );
+    assert_eq!(
+        classify(Some("bbok_d940"), &[MESHTASTIC_SERVICE]),
+        Some(Firmware::Meshtastic)
+    );
+    assert_eq!(
+        classify(Some("MeshCore-bbok"), &[MESHCORE_SERVICE]),
+        Some(Firmware::MeshCore)
+    );
+    assert_eq!(classify(Some("MeshCore-bbok"), &[]), Some(Firmware::MeshCore));
+    assert_eq!(classify(Some("Nordic_UART"), &[MESHCORE_SERVICE]), None);
+    assert_eq!(classify(None, &[]), None);
+    // A stale BlueZ cache can list both: the Meshtastic service wins, the session checks it.
+    assert_eq!(
+        classify(Some("MeshCore-bbok"), &[MESHTASTIC_SERVICE]),
+        Some(Firmware::Meshtastic)
+    );
+}

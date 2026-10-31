@@ -79,6 +79,8 @@ pub use events::{
     MsgSentInfo, Subscription,
 };
 pub use meshcore::MeshCore;
+#[cfg(feature = "ble")]
+pub use meshcore::ble::ble_manager;
 pub use packets::{AnonReqType, BinaryReqType, ControlType, PacketType, PayloadType, RouteType};
 
 /// Result type alias using the library's Error type

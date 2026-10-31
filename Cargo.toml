@@ -8,6 +8,8 @@ description = "Terminal client for a MeshCore companion radio over Bluetooth"
 
 [dependencies]
 anyhow = "1"
+# Same version as meshcore-rs: one btleplug, one BLE manager for both firmwares.
+btleplug = "0.12"
 # Local time of messages.
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 clap = { version = "4", features = ["derive"] }
@@ -28,6 +30,8 @@ unicode-width = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # OpenStreetMap tile downloads.
 ureq = "3"
+# Bluetooth service UUIDs, to tell the firmwares apart during the scan.
+uuid = "1"
 
 [dev-dependencies]
 tempfile = "3"

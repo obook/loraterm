@@ -32,6 +32,12 @@ async fn manager() -> crate::Result<&'static Manager> {
         .await
 }
 
+/// Patched for meshcore-m5: the process-wide BLE manager, for other BLE code of the same
+/// process (a second manager would bring the duplicated notifications back).
+pub async fn ble_manager() -> crate::Result<&'static Manager> {
+    manager().await
+}
+
 impl MeshCore {
     /// Patched for meshcore-m5: `disconnect()` leaves the BLE link up; this drops the link of
     /// the radio named or addressed `name_or_mac`, through the shared manager.

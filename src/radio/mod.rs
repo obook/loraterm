@@ -135,7 +135,24 @@ impl std::fmt::Display for HistoryWriteFailed {
 impl std::error::Error for HistoryWriteFailed {}
 
 /// Shown while searching when no device name was given.
-pub const ANY_RADIO: &str = "a MeshCore radio";
+pub const ANY_RADIO: &str = "a MeshCore or Meshtastic radio";
+
+/// What the radio runs, found from what it advertises over Bluetooth.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum Firmware {
+    #[default]
+    MeshCore,
+    Meshtastic,
+}
+
+impl Firmware {
+    pub fn name(self) -> &'static str {
+        match self {
+            Firmware::MeshCore => "MeshCore",
+            Firmware::Meshtastic => "Meshtastic",
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum NodeKind {

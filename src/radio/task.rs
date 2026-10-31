@@ -11,9 +11,9 @@ use std::sync::mpsc::Sender;
 
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use super::link::{ble_disconnect, candidates, connect_to};
+use super::link::{ble_disconnect, candidates, connect_to, Candidate};
 use super::session::session;
-use super::{FromRadio, HistoryWriteFailed, Link, ToRadio, ANY_RADIO};
+use super::{FromRadio, Firmware, HistoryWriteFailed, Link, ToRadio, ANY_RADIO};
 use crate::config::RETRY;
 
 /// Run the radio in `rt`. It reconnects on its own and stops once the UI is gone;
@@ -45,12 +45,16 @@ pub(super) async fn run(
         }
         // Each candidate is announced first: the UI shows it, and a quit during the connect
         // knows which radio to drop.
-        let mut found = Err(anyhow::anyhow!("no MeshCore radio found"));
-        let names = candidates(device.as_deref()).await.unwrap_or_else(|e| {
+        let mut found = Err(anyhow::anyhow!("no radio found"));
+        let list = candidates(device.as_deref()).await.unwrap_or_else(|e| {
             tracing::info!("BLE scan failed: {e:#}");
             vec![]
         });
-        for name in names {
+        for Candidate { name, firmware } in list {
+            if firmware != Firmware::MeshCore {
+                tracing::info!("{} radio {name}: not supported yet", firmware.name());
+                continue;
+            }
             if tx
                 .send(FromRadio::Link(Link::Searching(name.clone())))
                 .is_err()
