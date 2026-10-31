@@ -54,6 +54,16 @@ async fn meshcore(name: &str) -> anyhow::Result<()> {
             );
         }
         println!("contacts {}", contacts.len());
+        let now = chrono::Utc::now().timestamp();
+        let mut list: Vec<_> = contacts.iter().collect();
+        list.sort_by_key(|c| c.adv_name.to_lowercase());
+        for c in list {
+            let heard = match c.last_modification_timestamp.max(c.last_advert) {
+                0 => "never".to_string(),
+                t => format!("{} min ago", (now - i64::from(t)).max(0) / 60),
+            };
+            println!("  {:<24} type {}  heard {heard}", c.adv_name, c.contact_type);
+        }
         anyhow::Ok(())
     }
     .await;
