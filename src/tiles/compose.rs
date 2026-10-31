@@ -14,7 +14,7 @@ use super::Tiles;
 use crate::config::RINGS_KM;
 use crate::map::{MapView, Pos};
 
-/// How the map is drawn: OSM colors, or night vision with radar overlays.
+/// How the map is drawn: OSM colors, or a dark map with radar overlays.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Look {
     Plain,
@@ -27,7 +27,7 @@ pub(super) const PLAIN_BACKGROUND: Rgba<u8> = Rgba([40, 40, 40, 255]);
 /// My radio's triangle (Normal look).
 pub(super) const PLAIN_ME: Rgba<u8> = Rgba([255, 140, 0, 255]);
 
-// Night-vision palette.
+// Hacker palette.
 /// Where a tile is missing (Hacker look).
 pub const BACKGROUND: Rgba<u8> = Rgba([0, 8, 2, 255]);
 /// A node's cross (Hacker look).
@@ -47,12 +47,21 @@ pub(super) const OUTLINE: Rgba<u8> = Rgba([0, 0, 0, 255]);
 /// Grid spacing, in pixels; lines fall between the center and the edges.
 pub(super) const GRID_PX: i64 = 100;
 
-/// OSM colors to night vision: luminance inverted, boosted, in green. Light land turns dark,
-/// dark labels turn bright.
+/// OSM colors to a dark map, the meshmap.net way (CSS `invert(1) hue-rotate(180deg)
+/// brightness(1.33)`): light land turns dark, labels turn bright, water stays blue.
 pub fn night(c: Rgba<u8>) -> Rgba<u8> {
-    let lum = 0.299 * f64::from(c[0]) + 0.587 * f64::from(c[1]) + 0.114 * f64::from(c[2]);
-    let v = ((255.0 - lum) * 1.8).min(255.0);
-    Rgba([0, v as u8, (v / 4.0) as u8, 255])
+    // The CSS hue-rotate matrix for 180 degrees.
+    const HUE: [[f64; 3]; 3] = [
+        [-0.574, 1.430, 0.144],
+        [0.426, 0.430, 0.144],
+        [0.426, 1.430, -0.856],
+    ];
+    let inv = [0, 1, 2].map(|i| 255.0 - f64::from(c[i]));
+    let px = |m: [f64; 3]| {
+        let v = (m[0] * inv[0] + m[1] * inv[1] + m[2] * inv[2]).clamp(0.0, 255.0);
+        (v * 1.33).min(255.0) as u8
+    };
+    Rgba([px(HUE[0]), px(HUE[1]), px(HUE[2]), 255])
 }
 
 /// Radius in screen pixels of `km` at latitude `lat` and `zoom` (Web Mercator).

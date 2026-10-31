@@ -178,10 +178,12 @@ fn the_selected_node_gets_a_pin_in_both_looks() {
 }
 
 #[test]
-fn night_vision_darkens_land_and_lights_up_text() {
-    assert!(night(Rgba([242, 239, 233, 255]))[1] < 60, "OSM land");
-    assert_eq!(night(Rgba([30, 30, 30, 255]))[1], 255, "OSM labels");
-    assert_eq!(night(RED)[0], 0, "green only");
+fn night_darkens_land_lights_up_text_and_keeps_water_blue() {
+    let land = night(Rgba([242, 239, 233, 255]));
+    assert!(land.0[..3].iter().all(|&v| v < 40), "OSM land: {land:?}");
+    assert_eq!(night(Rgba([30, 30, 30, 255])), Rgba([255, 255, 255, 255]), "OSM labels");
+    let water = night(Rgba([170, 211, 223, 255]));
+    assert!(water[2] > water[0] + 40, "OSM water: {water:?}");
 }
 
 #[test]
