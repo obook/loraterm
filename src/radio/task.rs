@@ -51,6 +51,8 @@ pub(super) async fn run(
     mut cmds: UnboundedReceiver<ToRadio>,
 ) {
     let label = device.clone().unwrap_or_else(|| ANY_RADIO.into());
+    // With --device the firmware cannot change between two links: skip the 4 s rescan.
+    let mut known: Option<Candidate> = None;
     loop {
         if tx
             .send(FromRadio::Link(Link::Searching(label.clone())))
@@ -61,10 +63,13 @@ pub(super) async fn run(
         // Each candidate is announced first: the UI shows it, and a quit during the connect
         // knows which radio to drop.
         let mut found = Err(anyhow::anyhow!("no radio found"));
-        let list = candidates(device.as_deref()).await.unwrap_or_else(|e| {
-            tracing::info!("BLE scan failed: {e:#}");
-            vec![]
-        });
+        let list = match known.take() {
+            Some(c) => vec![c],
+            None => candidates(device.as_deref()).await.unwrap_or_else(|e| {
+                tracing::info!("BLE scan failed: {e:#}");
+                vec![]
+            }),
+        };
         // A radio whose bond is stale does not stop the others from being tried.
         let mut repair = None;
         for Candidate { name, firmware } in list {
@@ -78,9 +83,14 @@ pub(super) async fn run(
                 Firmware::MeshCore => connect_to(&name).await.map(Radio::MeshCore),
                 Firmware::Meshtastic => Transport::connect(&name).await.map(Radio::Meshtastic),
             }
-            .map(|radio| (radio, name));
+            .map(|radio| (radio, name.clone()));
             match found {
-                Ok(_) => break,
+                Ok(_) => {
+                    if device.is_some() {
+                        known = Some(Candidate { name, firmware });
+                    }
+                    break;
+                }
                 Err(e) if e.is::<RepairNeeded>() => {
                     tracing::warn!("radio: {e:#}");
                     repair = Some(e);

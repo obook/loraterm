@@ -51,7 +51,7 @@ async fn read_until_empty_keeps_what_it_read_before_an_error() {
 #[test]
 fn repair_needed_says_what_to_do() {
     let msg = RepairNeeded("Meshtastic_d940".into()).to_string();
-    assert!(msg.contains("re-pair the radio with bluetoothctl"), "{msg}");
+    assert!(msg.contains("bluetoothctl remove"), "{msg}");
 }
 
 use super::convert::*;
