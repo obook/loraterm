@@ -76,3 +76,6 @@ pub const TILES_IN_MEMORY: usize = 512;
 pub const BOOT: Duration = Duration::from_millis(1500);
 /// Battery under this percentage is shown as an alert.
 pub const LOW_BATTERY: u8 = 20;
+
+/// A contact heard within this many seconds is marked in the list.
+pub const FRESH_SECS: i64 = 600;
