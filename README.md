@@ -33,7 +33,9 @@ pair A4:CB:8F:CB:D9:41
 ```
 
 Put your radio's address in the last line, then type the PIN shown on the
-radio's screen (the M5 picks a new one at each boot). After switching the
+radio's screen (the M5 picks a new one at each boot). Or let
+`scripts/pair-radio.py` do it all: it finds the radio, removes an old
+pairing and asks for the PIN when bluetoothctl needs it. After switching the
 radio to the other firmware, run `remove` with its address first and pair
 again: the old bond no longer works. To check the link:
 

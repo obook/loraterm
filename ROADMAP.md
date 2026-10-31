@@ -31,9 +31,8 @@ ThinkNode M5 (MeshCore Companion Bluetooth v1.18.0, Meshtastic 2.7.26).
 ## Meshtastic support
 
 The M5 runs either firmware; the program picks the protocol on its own,
-from what the radio advertises over Bluetooth. Design and plan:
-[docs/meshtastic.md](docs/meshtastic.md),
-[docs/meshtastic-plan.md](docs/meshtastic-plan.md).
+from what the radio advertises over Bluetooth. Design:
+[docs/meshtastic-design.md](docs/meshtastic-design.md).
 
 - [x] License: the project is GPL-3.0, like the `meshtastic` crate 0.1.9
 - [x] Read the crate: its released Bluetooth code has a bug and its own
@@ -54,7 +53,8 @@ from what the radio advertises over Bluetooth. Design and plan:
 - [x] Try it on the M5 flashed with Meshtastic: `--probe`, connection,
   header and battery
 - [ ] Message exchange and traceroute with another Meshtastic node
-- [ ] MeshCore check after the switch back (restore the backup, re-pair)
+- [ ] MeshCore check after the switch back (backup restored; re-pair with
+  `scripts/pair-radio.py`, then probe)
 - [x] New name for the project: loraterm; the history and tile cache move
   to the new data paths on the first start
 
