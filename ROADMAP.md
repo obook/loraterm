@@ -1,82 +1,78 @@
-# Feuille de route
+# Roadmap
 
-meshcore-m5 est un client MeshCore en terminal, relié en Bluetooth à un
+meshcore-m5 is a terminal MeshCore client that talks over Bluetooth to an
 ELECROW ThinkNode M5 (firmware MeshCore Companion Bluetooth v1.18.0).
 
-## Fait
+## Done
 
-- [x] Connexion Bluetooth au M5, reconnexion automatique, instance unique
-- [x] Messages directs et canal public, avec accusés de réception
-- [x] Historique des messages sur disque (JSONL), écrit avant l'affichage
-- [x] Liste des contacts et fiche du node : joignabilité, route, ping
-- [x] Fiche du M5 : batterie (courbe LiPo), réglages radio, durée de
-  connexion
-- [x] Carte OpenStreetMap avec cache des tuiles, zoom et déplacement
-- [x] Icônes de map.meshcore.io, épingle sur le node sélectionné
-- [x] Apparences Normale et Hacker, choisies au menu de démarrage
-- [x] Mode console Linux (`--console` ou `TERM=linux`) : affichage ASCII et
-  radar de lettres à la place de la carte
-- [x] Carte ajustée à la taille du panneau ; sélectionner le M5 montre ses
-  voisins
-- [x] Correctifs de meshcore-rs 0.2.0 (copie dans `vendor/`) : une seule
-  connexion D-Bus, plus de notifications en double après une reconnexion
+- [x] Bluetooth link to the M5, automatic reconnection, single instance
+- [x] Direct messages and the public channel, with delivery receipts
+- [x] Message history on disk (JSONL), written before display
+- [x] Contact list and node card: reachability, route, ping
+- [x] M5 card: battery (LiPo curve), radio settings, connection time
+- [x] OpenStreetMap map with a tile cache, zoom and pan
+- [x] map.meshcore.io icons, pin on the selected node
+- [x] Normal and Hacker looks, picked from the start menu
+- [x] Linux console mode (`--console` or `TERM=linux`): ASCII display and
+  a radar of letters instead of the map
+- [x] Map fitted to the panel size; selecting the M5 shows its neighbours
+- [x] Fixes to meshcore-rs 0.2.0 (copy in `vendor/`): one D-Bus
+  connection, no more duplicated notifications after a reconnection
 
-## À vérifier sur le matériel
+## To check on the hardware
 
-- [ ] Ping d'un répéteur avec connexion invité (échec avant la correction
-  sur "33LPOR Pier Ré")
-- [ ] Mode console sur une vraie console Linux (TTY), puis via SSH
-- [ ] Ajustement de la carte quand on sélectionne le M5
-- [ ] Pourcentage de batterie comparé à celui de l'application Android
+- [ ] Ping a repeater with the guest login ("33LPOR Pier Ré" failed
+  before the fix)
+- [ ] Console mode on a real Linux console (TTY), then over SSH
+- [ ] Map fit when selecting the M5
+- [ ] Battery percentage compared with the Android app
 
-## Support de Meshtastic
+## Meshtastic support
 
-Le M5 accepte les deux firmwares. Le programme choisirait le bon protocole
-tout seul, selon ce que le M5 annonce en Bluetooth.
+The M5 runs either firmware. The program would pick the right protocol on
+its own, from what the M5 advertises over Bluetooth.
 
-- [ ] Choisir la licence : la crate `meshtastic` 0.1.9 est en GPL-3.0 alors
-  que le projet est en MIT. Passer le projet en GPL-3.0 ou réserver
-  Meshtastic à une option de compilation
-- [ ] Vérifier la licence des définitions Protobuf de Meshtastic
-- [ ] Lire le code de la crate : Bluetooth sous Linux, connexion D-Bus
-  ouverte à chaque connexion (risque de notifications en double)
-- [ ] Détecter le firmware pendant la recherche Bluetooth, par l'UUID du
-  service annoncé : MeshCore `6e400001-...`, Meshtastic `6ba1b218-...`
-- [ ] Module `src/radio/meshtastic/` qui produit les mêmes `FromRadio` et
-  reçoit les mêmes `ToRadio` que la partie MeshCore
-- [ ] Nodes et positions tirés de la base de nodes de Meshtastic
-- [ ] Messages : canal 0 pour le public, messages directs, accusés
-- [ ] Batterie : pourcentage donné directement par le firmware
-- [ ] Ping : traceroute à la place du statut des répéteurs
-- [ ] Types de nodes : rôles Meshtastic (CLIENT, ROUTER...) dans la fiche
-  et sur la carte
-- [ ] Firmware détecté affiché dans l'en-tête
-- [ ] Tests des conversions Meshtastic vers nos types
-- [ ] Essai sur le M5 reflashé en Meshtastic
+- [ ] Choose the licence: the `meshtastic` crate 0.1.9 is GPL-3.0 while
+  this project is MIT. Move the project to GPL-3.0 or keep Meshtastic
+  behind a build feature
+- [ ] Check the licence of the Meshtastic Protobuf definitions
+- [ ] Read the crate's code: Bluetooth on Linux, a D-Bus connection opened
+  on each connect (risk of duplicated notifications)
+- [ ] Detect the firmware during the Bluetooth scan from the advertised
+  service UUID: MeshCore `6e400001-...`, Meshtastic `6ba1b218-...`
+- [ ] `src/radio/meshtastic/` module that sends the same `FromRadio` and
+  takes the same `ToRadio` as the MeshCore side
+- [ ] Nodes and positions from the Meshtastic node database
+- [ ] Messages: channel 0 as the public channel, direct messages, receipts
+- [ ] Battery: percentage given by the firmware
+- [ ] Ping: traceroute instead of the repeater status request
+- [ ] Node types: Meshtastic roles (CLIENT, ROUTER...) on the card and
+  the map
+- [ ] Detected firmware shown in the header
+- [ ] Tests for the conversions from Meshtastic to our types
+- [ ] Try it on the M5 flashed with Meshtastic
 
-## Documentation et publication
+## Documentation and release
 
-- [ ] README : installation, appairage (`bluetoothctl` avec l'agent
-  `KeyboardOnly` et le PIN affiché sur le M5), utilisation, touches
-- [ ] Fichier LICENSE (le `Cargo.toml` annonce MIT)
-- [ ] Proposer nos correctifs Bluetooth au projet meshcore-rs, pour pouvoir
-  supprimer `vendor/`
-- [ ] Tag v0.1.0 et notes de version
-- [ ] Intégration continue GitHub Actions : tests et clippy
+- [ ] README: install, pairing (`bluetoothctl` with the `KeyboardOnly`
+  agent and the PIN shown on the M5), usage, keys
+- [ ] LICENSE file (`Cargo.toml` says MIT)
+- [ ] Offer our Bluetooth fixes to the meshcore-rs project, so `vendor/`
+  can go
+- [ ] Tag v0.1.0 and release notes
+- [ ] GitHub Actions CI: tests and clippy
 
-## Petites dettes connues
+## Known small debts
 
-- [ ] La position du M5 n'est lue qu'à la connexion : elle ne suit pas un
-  déplacement
-- [ ] Les tuiles sorties de la vue restent dans la file de téléchargement
-- [ ] Les réponses de connexion invité ne nomment pas le node : un seul
-  ping à la fois
-- [ ] Nombre maximal de contacts non affiché : meshcore-rs plafonne la
-  valeur du firmware à 255
-- [ ] Les chemins à hachage long s'affichent octet par octet
-- [ ] Le défilement de la conversation suppose au plus 4 lignes par message
-- [ ] Le type de node passe de `app` à `ui` par une chaîne ("repeater",
+- [ ] The M5's position is read only at connect: it does not follow a move
+- [ ] Tiles that left the view stay in the download queue
+- [ ] Guest login replies do not name the node: one ping at a time
+- [ ] Maximum contact count not shown: meshcore-rs caps the firmware's
+  value at 255
+- [ ] Long path hashes show byte by byte
+- [ ] Conversation scrolling assumes at most 4 rows per message
+- [ ] The node type goes from `app` to `ui` as a string ("repeater",
   "room"...)
-- [ ] L'heure est lue de trois façons différentes (chrono `Utc`, `Local`,
+- [ ] The time is read three different ways (chrono `Utc`, `Local`,
   `SystemTime`)
-- [ ] Le calcul des dossiers XDG est répété dans trois fichiers
+- [ ] The XDG directory lookup is repeated in three files
