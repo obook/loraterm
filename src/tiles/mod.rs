@@ -1,5 +1,5 @@
 //! tiles/mod.rs
-//! OpenStreetMap tiles: disk cache (~/.cache/meshcore-m5/tiles) and downloads in a
+//! OpenStreetMap tiles: disk cache (~/.cache/loraterm/tiles) and downloads in a
 //! background thread, following the OSM tile usage policy. compose.rs draws the map image,
 //! icons.rs the node icons.
 //!
@@ -73,7 +73,7 @@ impl Tiles {
             .unwrap_or_else(|| {
                 PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".cache")
             })
-            .join("meshcore-m5/tiles")
+            .join("loraterm/tiles")
     }
 
     /// Downloads asked for and not done yet.

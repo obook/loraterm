@@ -1,4 +1,4 @@
-# meshcore-m5
+# loraterm
 
 A terminal client for a MeshCore or Meshtastic radio over Bluetooth. You
 can send and receive messages, direct or on the public channel, and see the
@@ -16,7 +16,7 @@ You need Rust.
 cargo build --release
 ```
 
-The program is `target/release/meshcore-m5`.
+The program is `target/release/loraterm`.
 
 ## Pair the radio
 
@@ -38,13 +38,13 @@ radio to the other firmware, run `remove` with its address first and pair
 again: the old bond no longer works. To check the link:
 
 ```
-meshcore-m5 --probe
+loraterm --probe
 ```
 
 ## Run
 
 ```
-meshcore-m5
+loraterm
 ```
 
 A menu asks for the look, Normal or Hacker. The program then connects to
@@ -89,9 +89,13 @@ Outside the input line only, `p` pings and `q` quits.
 
 ## Files
 
-- Messages: `~/.local/share/meshcore-m5/history.jsonl`
-- Map tiles: `~/.cache/meshcore-m5/tiles/`
-- Log: `$XDG_RUNTIME_DIR/meshcore-m5.log`
+- Messages: `~/.local/share/loraterm/history.jsonl`
+- Map tiles: `~/.cache/loraterm/tiles/`
+- Log: `$XDG_RUNTIME_DIR/loraterm.log`
+
+The project was called meshcore-m5. On its first start, loraterm moves the
+old `~/.local/share/meshcore-m5` and `~/.cache/meshcore-m5` folders to the
+new names, unless the new ones already exist.
 
 The plan is in [ROADMAP.md](ROADMAP.md).
 

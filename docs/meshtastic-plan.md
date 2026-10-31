@@ -1,6 +1,6 @@
 # Meshtastic support: implementation plan
 
-**Goal:** meshcore-m5 detects whether the radio runs MeshCore or Meshtastic
+**Goal:** loraterm (then called meshcore-m5) detects whether the radio runs MeshCore or Meshtastic
 and offers the same screens with either.
 
 **Architecture:** the scan classifies each radio by its advertised service.
@@ -235,7 +235,7 @@ assert_eq!(classify(Some("MeshCore-bbok"), &[MESHTASTIC_SERVICE]), Some(Firmware
 
 - [ ] **Step 1: `--probe` for Meshtastic:** connect, `handshake`, print `device`, `firmware Meshtastic <version>`, `battery`, `pos` and `nodes <count>` in the existing format, then disconnect. MeshCore output stays the same, plus a `firmware MeshCore` line.
 
-- [ ] **Step 2: Check on hardware:** `meshcore-m5 --probe` with the M5 under Meshtastic prints the five lines.
+- [ ] **Step 2: Check on hardware:** `loraterm --probe` with the M5 under Meshtastic prints the five lines.
 
 - [ ] **Step 3: Docs.** README: detection, pairing for both firmwares, what differs under Meshtastic (traceroute, nodes found automatically, conversations kept apart, the clock set at each connection). ROADMAP: tick the done items of "Meshtastic support".
 

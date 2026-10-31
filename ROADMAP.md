@@ -1,7 +1,8 @@
 # Roadmap
 
-meshcore-m5 is a terminal MeshCore client that talks over Bluetooth to an
-ELECROW ThinkNode M5 (firmware MeshCore Companion Bluetooth v1.18.0).
+loraterm (formerly meshcore-m5) is a terminal client that talks over
+Bluetooth to a MeshCore or Meshtastic radio. It is tested on an ELECROW
+ThinkNode M5 (MeshCore Companion Bluetooth v1.18.0, Meshtastic 2.7.26).
 
 ## Done
 
@@ -54,8 +55,8 @@ from what the radio advertises over Bluetooth. Design and plan:
   header and battery
 - [ ] Message exchange and traceroute with another Meshtastic node
 - [ ] MeshCore check after the switch back (restore the backup, re-pair)
-- [ ] New name for the project: "meshcore-m5" no longer fits; move the
-  history to the new data path
+- [x] New name for the project: loraterm; the history and tile cache move
+  to the new data paths on the first start
 
 ## Documentation and release
 

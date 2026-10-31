@@ -1,5 +1,5 @@
 //! main.rs
-//! meshcore-m5: terminal client for a MeshCore companion radio (ThinkNode M5) over Bluetooth.
+//! loraterm: terminal client for a MeshCore or Meshtastic radio over Bluetooth.
 //! This file reads the command line, sets up the log and the single-instance lock, then runs
 //! either the probe or the interface:
 //!   app/ (state and keys), radio/ (the BLE link, in a tokio task), ui/ (drawing),
@@ -63,7 +63,7 @@ fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("meshcore_m5=info")),
+                .unwrap_or_else(|_| EnvFilter::new("loraterm=info")),
         )
         .with_ansi(false)
         .with_writer(move || -> Box<dyn Write> {
@@ -78,7 +78,18 @@ fn main() -> anyhow::Result<()> {
         .init();
 
     let cli = Cli::parse();
-    let _lock = single_instance(&runtime_dir().join("meshcore-m5.lock"))?;
+    let _lock = single_instance(&runtime_dir().join("loraterm.lock"))?;
+    // The project was called meshcore-m5: its history and tile cache move to the new name,
+    // before --probe can write a new history.
+    let moved = [
+        history::default_path().parent().map(|p| p.to_path_buf()),
+        tiles::Tiles::default_dir().parent().map(|p| p.to_path_buf()),
+    ];
+    for new in moved.into_iter().flatten() {
+        if let Err(e) = history::carry_over(&new.with_file_name("meshcore-m5"), &new) {
+            tracing::warn!("{} not moved from meshcore-m5: {e}", new.display());
+        }
+    }
     // tokio runs asynchronous tasks; the BLE library (meshcore-rs on btleplug) needs it.
     let rt = tokio::runtime::Runtime::new()?;
     if cli.probe {
@@ -168,7 +179,7 @@ fn main() -> anyhow::Result<()> {
 
 /// TUI log, on the per-user tmpfs (private, cleared at logout).
 fn log_path() -> std::path::PathBuf {
-    runtime_dir().join("meshcore-m5.log")
+    runtime_dir().join("loraterm.log")
 }
 
 /// The Linux console, a terminal without a desktop: TERM is "linux" there.
@@ -185,7 +196,7 @@ fn runtime_dir() -> std::path::PathBuf {
 fn single_instance(path: &std::path::Path) -> anyhow::Result<std::fs::File> {
     let file = std::fs::File::create(path)?;
     if file.try_lock().is_err() {
-        anyhow::bail!("meshcore-m5 is already running (quit the other one first)");
+        anyhow::bail!("loraterm is already running (quit the other one first)");
     }
     Ok(file)
 }

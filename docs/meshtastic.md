@@ -3,7 +3,8 @@
 ## Intent
 
 The ThinkNode M5 runs either MeshCore or Meshtastic, and its owner switches
-between them (full flash backup, then restore). meshcore-m5 should work the
+between them (full flash backup, then restore). loraterm (then called
+meshcore-m5) should work the
 same way with both: it connects to the radio it finds, detects the firmware
 on its own, and shows the same screens (contact list, map, conversations,
 node card, radio card, battery) with the same keys.
@@ -140,11 +141,10 @@ Made by the designer, open to review:
 
 ## Separate work
 
-The project needs a new name: "meshcore-m5" no longer fits once it speaks
-Meshtastic too. Renaming is its own task, after this one. It touches the
-binary and crate names, the GitHub repository, the README, and the data
-paths (`~/.local/share/meshcore-m5/history.jsonl`, the tile cache, the log
-and the lock file); the history must be carried over to the new path.
+The project needed a new name: "meshcore-m5" no longer fit once it spoke
+Meshtastic too. It is now loraterm. The rename touched the binary and crate
+names, the GitHub repository, the README and the data paths; the history
+and the tile cache move from the old folders on the first start.
 
 ## Left to the builder
 

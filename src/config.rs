@@ -57,9 +57,9 @@ pub const FRESHNESS_DAYS: [u32; 3] = [5, 10, 20];
 pub const TILE_URL: &str = "https://tile.openstreetmap.org";
 /// Names the app to the tile server, as the OSM policy requires.
 pub const TILE_USER_AGENT: &str = concat!(
-    "meshcore-m5/",
+    "loraterm/",
     env!("CARGO_PKG_VERSION"),
-    " (terminal MeshCore client)"
+    " (terminal MeshCore and Meshtastic client)"
 );
 /// A cached tile older than this is shown, then downloaded again.
 pub const TILE_MAX_AGE: Duration = Duration::from_secs(7 * 24 * 3600);

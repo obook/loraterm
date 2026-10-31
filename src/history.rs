@@ -41,14 +41,26 @@ pub enum Record {
     Ack { tag: String },
 }
 
-/// `$XDG_DATA_HOME/meshcore-m5/history.jsonl`, or `~/.local/share/...` without the variable.
+/// Move the folder of the project's old name ("meshcore-m5") to the new one, once: only when
+/// the new one does not exist yet, so nothing is ever overwritten.
+pub fn carry_over(old: &Path, new: &Path) -> std::io::Result<()> {
+    if old.is_dir() && !new.exists() {
+        if let Some(parent) = new.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::rename(old, new)?;
+    }
+    Ok(())
+}
+
+/// `$XDG_DATA_HOME/loraterm/history.jsonl`, or `~/.local/share/...` without the variable.
 pub fn default_path() -> PathBuf {
     let data = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| {
             PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".local/share")
         });
-    data.join("meshcore-m5/history.jsonl")
+    data.join("loraterm/history.jsonl")
 }
 
 /// Add one record at the end of the file and sync it to disk before returning.
@@ -185,5 +197,28 @@ mod tests {
     fn creates_parent_dir() {
         let dir = tempfile::tempdir().unwrap();
         append(&dir.path().join("a/b/history.jsonl"), &msg("one")).unwrap();
+    }
+
+    #[test]
+    fn carry_over_moves_the_old_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let (old, new) = (dir.path().join("meshcore-m5"), dir.path().join("loraterm"));
+        append(&old.join("history.jsonl"), &msg("kept")).unwrap();
+        carry_over(&old, &new).unwrap();
+        assert!(!old.exists());
+        assert_eq!(load(&new.join("history.jsonl")).unwrap(), [msg("kept")]);
+    }
+
+    #[test]
+    fn carry_over_never_overwrites() {
+        let dir = tempfile::tempdir().unwrap();
+        let (old, new) = (dir.path().join("meshcore-m5"), dir.path().join("loraterm"));
+        append(&old.join("history.jsonl"), &msg("old")).unwrap();
+        append(&new.join("history.jsonl"), &msg("new")).unwrap();
+        carry_over(&old, &new).unwrap();
+        assert!(old.exists());
+        assert_eq!(load(&new.join("history.jsonl")).unwrap(), [msg("new")]);
+        // Nothing to carry over: no error.
+        carry_over(&dir.path().join("none"), &dir.path().join("other")).unwrap();
     }
 }

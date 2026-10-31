@@ -1,10 +1,10 @@
 [package]
-name = "meshcore-m5"
+name = "loraterm"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-only"
 authors = ["Olivier Booklage <olivier.booklage@ac-bordeaux.fr>"]
-description = "Terminal client for a MeshCore companion radio over Bluetooth"
+description = "Terminal client for a MeshCore or Meshtastic radio over Bluetooth"
 
 [dependencies]
 anyhow = "1"

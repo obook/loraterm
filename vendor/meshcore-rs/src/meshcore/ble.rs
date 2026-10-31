@@ -16,7 +16,7 @@ const MESHCORE_SERVICE_UUID: Uuid = Uuid::from_u128(0x6e400001_b5a3_f393_e0a9_e5
 const MESHCORE_TX_CHAR_UUID: Uuid = Uuid::from_u128(0x6e400002_b5a3_f393_e0a9_e50e24dcca9e);
 const MESHCORE_RX_CHAR_UUID: Uuid = Uuid::from_u128(0x6e400003_b5a3_f393_e0a9_e50e24dcca9e);
 
-// Patched for meshcore-m5: one BLE manager (one D-Bus connection) per process. Each
+// Patched for loraterm: one BLE manager (one D-Bus connection) per process. Each
 // Manager::new() opened a D-Bus connection that is never closed; the notify session started
 // through it lived on, and BlueZ delivered every notification once per session after each
 // reconnect (frames, contacts and messages duplicated).
@@ -32,14 +32,14 @@ async fn manager() -> crate::Result<&'static Manager> {
         .await
 }
 
-/// Patched for meshcore-m5: the process-wide BLE manager, for other BLE code of the same
+/// Patched for loraterm: the process-wide BLE manager, for other BLE code of the same
 /// process (a second manager would bring the duplicated notifications back).
 pub async fn ble_manager() -> crate::Result<&'static Manager> {
     manager().await
 }
 
 impl MeshCore {
-    /// Patched for meshcore-m5: `disconnect()` leaves the BLE link up; this drops the link of
+    /// Patched for loraterm: `disconnect()` leaves the BLE link up; this drops the link of
     /// the radio named or addressed `name_or_mac`, through the shared manager.
     pub async fn ble_disconnect(name_or_mac: &str) -> crate::Result<()> {
         let adapters = manager()
@@ -86,7 +86,7 @@ impl MeshCore {
             .map_err(|e| Error::connection(format!("Failed to get adapter events: {}", e)))?;
 
         // Start scanning
-        // Patched for meshcore-m5: all scans share one D-Bus sender now, and BlueZ refuses a
+        // Patched for loraterm: all scans share one D-Bus sender now, and BlueZ refuses a
         // scan from a sender that left one running.
         let _ = adapter.stop_scan().await;
         adapter
@@ -191,7 +191,7 @@ impl MeshCore {
             .ok_or_else(|| Error::connection("RX characteristic not found"))?
             .clone();
 
-        // Patched for meshcore-m5: drop this process's previous notify session first; the
+        // Patched for loraterm: drop this process's previous notify session first; the
         // shared D-Bus connection keeps it across reconnects.
         let _ = peripheral.unsubscribe(&rx_char).await;
 
@@ -229,7 +229,7 @@ impl MeshCore {
             .await
             .map_err(|e| Error::connection(format!("Failed to get adapter events: {}", e)))?;
 
-        // Patched for meshcore-m5: all scans share one D-Bus sender now, and BlueZ refuses a
+        // Patched for loraterm: all scans share one D-Bus sender now, and BlueZ refuses a
         // scan from a sender that left one running.
         let _ = adapter.stop_scan().await;
         adapter

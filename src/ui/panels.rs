@@ -91,11 +91,11 @@ pub(super) fn draw_header(frame: &mut Frame, app: &App, area: Rect, theme: Theme
             theme,
             app.ascii,
             false,
-            "meshcore-m5  MeshCore over Bluetooth",
+            "loraterm  MeshCore and Meshtastic over Bluetooth",
         ),
         Theme::Hacker => {
             let clock = chrono::Local::now().format(" %H:%M:%S ").to_string();
-            panel(theme, app.ascii, false, "MESHCORE-M5")
+            panel(theme, app.ascii, false, "LORATERM")
                 .title(Line::styled(clock, text(theme)).right_aligned())
         }
     };
