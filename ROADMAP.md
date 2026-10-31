@@ -15,7 +15,7 @@ ELECROW ThinkNode M5 (firmware MeshCore Companion Bluetooth v1.18.0).
 - [x] Normal and Hacker looks, picked from the start menu
 - [x] Linux console mode (`--console` or `TERM=linux`): ASCII display and
   a radar of letters instead of the map
-- [x] Map fitted to the panel size; selecting the M5 shows its neighbours
+- [x] Map fitted to the panel size; selecting the M5 shows its neighbors
 - [x] Fixes to meshcore-rs 0.2.0 (copy in `vendor/`): one D-Bus
   connection, no more duplicated notifications after a reconnection
 
@@ -32,10 +32,7 @@ ELECROW ThinkNode M5 (firmware MeshCore Companion Bluetooth v1.18.0).
 The M5 runs either firmware. The program would pick the right protocol on
 its own, from what the M5 advertises over Bluetooth.
 
-- [ ] Choose the licence: the `meshtastic` crate 0.1.9 is GPL-3.0 while
-  this project is MIT. Move the project to GPL-3.0 or keep Meshtastic
-  behind a build feature
-- [ ] Check the licence of the Meshtastic Protobuf definitions
+- [x] License: the project is GPL-3.0, like the `meshtastic` crate 0.1.9
 - [ ] Read the crate's code: Bluetooth on Linux, a D-Bus connection opened
   on each connect (risk of duplicated notifications)
 - [ ] Detect the firmware during the Bluetooth scan from the advertised
@@ -54,9 +51,8 @@ its own, from what the M5 advertises over Bluetooth.
 
 ## Documentation and release
 
-- [ ] README: install, pairing (`bluetoothctl` with the `KeyboardOnly`
-  agent and the PIN shown on the M5), usage, keys
-- [ ] LICENSE file (`Cargo.toml` says MIT)
+- [x] README: build, pairing, usage, keys
+- [x] LICENSE file (GPL-3.0)
 - [ ] Offer our Bluetooth fixes to the meshcore-rs project, so `vendor/`
   can go
 - [ ] Tag v0.1.0 and release notes
