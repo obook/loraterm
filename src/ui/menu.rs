@@ -92,7 +92,7 @@ pub fn draw_menu(frame: &mut Frame, selected: Theme, ascii: bool) {
     ];
     frame.render_widget(Clear, area);
     frame.render_widget(
-        Paragraph::new(lines).block(panel(Theme::Normal, ascii, true, "loraterm")),
+        Paragraph::new(lines).block(panel(Theme::Normal, ascii, true, "meshvox-term")),
         area,
     );
 }
