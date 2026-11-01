@@ -36,6 +36,10 @@ struct Cli {
     /// Connect, print the radio's state and exit.
     #[arg(long)]
     probe: bool,
+    /// Send a text command to a MeshCore radio (e.g. "set ui.backlight_on_keys 1"), print
+    /// its reply and exit.
+    #[arg(long, value_name = "COMMAND", conflicts_with = "probe")]
+    cli: Option<String>,
     /// How the map image is shown; "auto" asks the terminal (iTerm2 images in Konsole).
     #[arg(long, value_enum, default_value = "auto")]
     image: ImageMode,
@@ -94,6 +98,9 @@ fn main() -> anyhow::Result<()> {
     let rt = tokio::runtime::Runtime::new()?;
     if cli.probe {
         return rt.block_on(probe::probe(cli.device.as_deref()));
+    }
+    if let Some(command) = &cli.cli {
+        return rt.block_on(probe::cli(cli.device.as_deref(), command));
     }
 
     let history_path = history::default_path();

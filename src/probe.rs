@@ -1,6 +1,8 @@
 //! probe.rs
 //! --probe: connect to the radio, print its name, firmware, battery, position and contact
 //! (or node) count, then drop the link. Checks the Bluetooth setup without the interface.
+//! --cli: send one text command to a MeshCore radio ("set ui.backlight_on_keys 1"...) and
+//! print its reply.
 //!
 //! Author: O. Booklage
 //! Date: October 2026
@@ -8,7 +10,61 @@
 
 use std::time::Duration;
 
+use meshcore_rs::{EventPayload, EventType};
+
 use crate::radio::{self, Candidate, Firmware};
+
+/// MeshCore companion protocol v14+: a text command, and the radio's reply to it.
+const CMD_RUN_CLI_COMMAND: u8 = 66;
+const RESP_CODE_CLI_REPLY: u8 = 29;
+
+/// Send `command` to the first MeshCore radio that connects and print its reply. Only a
+/// failed connect moves on to the next radio: a command is never sent to two radios.
+pub async fn cli(device: Option<&str>, command: &str) -> anyhow::Result<()> {
+    let mut last = anyhow::anyhow!("no MeshCore radio found");
+    for Candidate { name, firmware } in radio::candidates(device).await? {
+        if firmware != Firmware::MeshCore {
+            continue;
+        }
+        let radio = match radio::connect_to(&name).await {
+            Ok(radio) => radio,
+            Err(e) => {
+                last = e;
+                continue;
+            }
+        };
+        let reply = async {
+            let cmd = radio.commands().lock().await;
+            cmd.send_appstart().await?;
+            let mut frame = vec![CMD_RUN_CLI_COMMAND];
+            frame.extend_from_slice(command.as_bytes());
+            // meshcore-rs does not know code 29: it arrives as an Unknown event, code included.
+            // An older firmware answers Error.
+            let event = cmd
+                .send_multi(
+                    &frame,
+                    &[EventType::Unknown, EventType::Error],
+                    Duration::from_secs(10),
+                )
+                .await?;
+            match event.payload {
+                EventPayload::Bytes(b) if b.first() == Some(&RESP_CODE_CLI_REPLY) => {
+                    Ok(String::from_utf8_lossy(&b[1..]).into_owned())
+                }
+                _ => Err(anyhow::anyhow!(
+                    "the radio did not run the command (firmware older than v14?)"
+                )),
+            }
+        }
+        .await;
+        // Drop the link even when the command failed, or a phone cannot reach the radio.
+        let _ = radio.disconnect().await;
+        let dropped = radio::ble_disconnect(&name).await;
+        println!("{}", reply?);
+        return dropped;
+    }
+    Err(last)
+}
 
 /// Probe the first radio that answers, of either firmware.
 pub async fn probe(device: Option<&str>) -> anyhow::Result<()> {
