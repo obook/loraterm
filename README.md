@@ -75,6 +75,8 @@ Options:
 
 - `--device <name or address>`: the radio to use
 - `--probe`: print the radio's state and exit
+- `--cli "<command>"`: send a text command to a MeshCore radio, print its
+  reply and exit, e.g. `--cli "set ui.backlight_on_keys 1"`
 - `--image auto|sixel|kitty|iterm2|halfblocks`: how the map image is shown
 - `--console`: ASCII look with a radar of letters instead of the map;
   automatic on the Linux console (`TERM=linux`)
