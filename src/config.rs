@@ -57,7 +57,7 @@ pub const FRESHNESS_DAYS: [u32; 3] = [5, 10, 20];
 pub const TILE_URL: &str = "https://tile.openstreetmap.org";
 /// Names the app to the tile server, as the OSM policy requires.
 pub const TILE_USER_AGENT: &str = concat!(
-    "loraterm/",
+    "meshvox-term/",
     env!("CARGO_PKG_VERSION"),
     " (terminal MeshCore and Meshtastic client)"
 );

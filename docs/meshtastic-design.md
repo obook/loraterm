@@ -168,4 +168,6 @@ Made during the design and the build:
 
 The project was renamed from meshcore-m5 to loraterm: it speaks MeshCore and
 Meshtastic and is not tied to the M5. The history and the tile cache move
-from the old folders on the first start.
+from the old folders on the first start. It was renamed again to
+meshvox-term, a sibling of the MeshVox Android app, because LoRa is a Semtech
+trademark.

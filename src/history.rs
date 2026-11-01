@@ -41,8 +41,8 @@ pub enum Record {
     Ack { tag: String },
 }
 
-/// Move the folder of the project's old name ("meshcore-m5") to the new one, once: only when
-/// the new one does not exist yet, so nothing is ever overwritten.
+/// Move the folder of a former project name ("loraterm", "meshcore-m5") to the new one, once:
+/// only when the new one does not exist yet, so nothing is ever overwritten.
 pub fn carry_over(old: &Path, new: &Path) -> std::io::Result<()> {
     if old.is_dir() && !new.exists() {
         if let Some(parent) = new.parent() {
@@ -53,14 +53,14 @@ pub fn carry_over(old: &Path, new: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// `$XDG_DATA_HOME/loraterm/history.jsonl`, or `~/.local/share/...` without the variable.
+/// `$XDG_DATA_HOME/meshvox-term/history.jsonl`, or `~/.local/share/...` without the variable.
 pub fn default_path() -> PathBuf {
     let data = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| {
             PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".local/share")
         });
-    data.join("loraterm/history.jsonl")
+    data.join("meshvox-term/history.jsonl")
 }
 
 /// Add one record at the end of the file and sync it to disk before returning.
@@ -202,7 +202,7 @@ mod tests {
     #[test]
     fn carry_over_moves_the_old_folder() {
         let dir = tempfile::tempdir().unwrap();
-        let (old, new) = (dir.path().join("meshcore-m5"), dir.path().join("loraterm"));
+        let (old, new) = (dir.path().join("meshcore-m5"), dir.path().join("meshvox-term"));
         append(&old.join("history.jsonl"), &msg("kept")).unwrap();
         carry_over(&old, &new).unwrap();
         assert!(!old.exists());
@@ -212,7 +212,7 @@ mod tests {
     #[test]
     fn carry_over_never_overwrites() {
         let dir = tempfile::tempdir().unwrap();
-        let (old, new) = (dir.path().join("meshcore-m5"), dir.path().join("loraterm"));
+        let (old, new) = (dir.path().join("meshcore-m5"), dir.path().join("meshvox-term"));
         append(&old.join("history.jsonl"), &msg("old")).unwrap();
         append(&new.join("history.jsonl"), &msg("new")).unwrap();
         carry_over(&old, &new).unwrap();

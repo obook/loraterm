@@ -1,7 +1,7 @@
 # Roadmap
 
-loraterm (formerly meshcore-m5) is a terminal client that talks over
-Bluetooth to a MeshCore or Meshtastic radio. It is tested on an ELECROW
+MeshVox Term (formerly loraterm, and meshcore-m5 before that) is a terminal
+client that talks over Bluetooth to a MeshCore or Meshtastic radio. It is tested on an ELECROW
 ThinkNode M5 (MeshCore Companion Bluetooth v1.18.0, Meshtastic 2.7.26).
 
 ## Done
@@ -57,6 +57,8 @@ from what the radio advertises over Bluetooth. Design:
   `scripts/pair-radio.py`, `--probe` and the interface connect (21 contacts)
 - [x] New name for the project: loraterm; the history and tile cache move
   to the new data paths on the first start
+- [x] Renamed again to meshvox-term, a sibling of the MeshVox Android app:
+  LoRa is a Semtech trademark. The loraterm folders move on the first start
 
 ## Documentation and release
 

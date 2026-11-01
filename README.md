@@ -1,4 +1,4 @@
-# loraterm
+# MeshVox Term
 
 A terminal client for a MeshCore or Meshtastic radio over Bluetooth. You
 can send and receive messages, direct or on the public channel, and see the
@@ -23,7 +23,7 @@ You need Rust.
 cargo build --release
 ```
 
-The program is `target/release/loraterm`.
+The program is `target/release/meshvox-term`.
 
 ## Pair the radio
 
@@ -47,13 +47,13 @@ radio to the other firmware, run `remove` with its address first and pair
 again: the old bond no longer works. To check the link:
 
 ```
-loraterm --probe
+meshvox-term --probe
 ```
 
 ## Run
 
 ```
-loraterm
+meshvox-term
 ```
 
 A menu asks for the look, Normal or Hacker. The program then connects to
@@ -100,13 +100,13 @@ Outside the input line only, `p` pings and `q` quits.
 
 ## Files
 
-- Messages: `~/.local/share/loraterm/history.jsonl`
-- Map tiles: `~/.cache/loraterm/tiles/`
-- Log: `$XDG_RUNTIME_DIR/loraterm.log`
+- Messages: `~/.local/share/meshvox-term/history.jsonl`
+- Map tiles: `~/.cache/meshvox-term/tiles/`
+- Log: `$XDG_RUNTIME_DIR/meshvox-term.log`
 
-The project was called meshcore-m5. On its first start, loraterm moves the
-old `~/.local/share/meshcore-m5` and `~/.cache/meshcore-m5` folders to the
-new names, unless the new ones already exist.
+The project was called loraterm, and meshcore-m5 before that. On its first
+start, meshvox-term moves the old `~/.local/share/` and `~/.cache/` folders
+of those names to the new ones, unless the new ones already exist.
 
 The plan is in [ROADMAP.md](ROADMAP.md).
 
